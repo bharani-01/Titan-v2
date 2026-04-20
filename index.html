@@ -1587,12 +1587,22 @@ const jTranslates = {
   BASE:'', SHOULDER:'rotate(-90)', ARM:'translate(0,-100)', J1:'translate(0,-80)', J2:'translate(0,-60)', GRIP:'translate(0,-40)'
 };
 
+let armThrottleTimer = null;
+let pendingArmCmds = {};
+
 function sendArmCmd(joint, value) {
-  const cmd = `ARM:${joint}:${value}`;
-  if (window.roverWs && window.roverWs.readyState === WebSocket.OPEN) {
-    window.roverWs.send(cmd);
+  pendingArmCmds[joint] = value;
+  if (!armThrottleTimer) {
+    armThrottleTimer = setTimeout(() => {
+      if (window.roverWs && window.roverWs.readyState === WebSocket.OPEN) {
+        for (const j in pendingArmCmds) {
+          window.roverWs.send(`ARM:${j}:${pendingArmCmds[j]}`);
+        }
+      }
+      pendingArmCmds = {};
+      armThrottleTimer = null;
+    }, 40); // Limit to ~25 commands per second to prevent ESP32 WDT crash
   }
-  tprint('tx', cmd);
 }
 
 function initArm() {
