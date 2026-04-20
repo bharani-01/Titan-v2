@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TITAN-V2 | Mission Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{
+  --bg:    #07090f; --mid:  #0d1017; --panel:#111520; --panel2:#161b27;
+  --acc:   #f0a500; --adim: rgba(240,165,0,.12); --aglow:rgba(240,165,0,.35);
+  --red:   #ff3c3c; --rdim: rgba(255,60,60,.15);
+  --grn:   #00e676; --gdim: rgba(0,230,118,.12);
+  --blu:   #00bcd4; --bdim: rgba(0,188,212,.12);
+  --text:  #c8d0e0; --mute:#4a5568; --bdr:#1e2535; --abdr:rgba(240,165,0,.3);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-family:'Share Tech Mono',monospace;}
+
+/* ── TOPBAR ── */
+.topbar{height:52px;background:var(--mid);border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 18px;gap:14px;flex-shrink:0;z-index:100;}
+.brand{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:900;color:var(--acc);letter-spacing:3px;text-shadow:0 0 12px var(--aglow);flex-shrink:0;}
+.brand span{color:#fff;opacity:.4;font-weight:400;}
+.tbdiv{width:1px;height:28px;background:var(--bdr);}
+.pill{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--bdr);border-radius:4px;padding:4px 10px;font-size:11px;white-space:nowrap;}
+.led{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.lg{background:var(--grn);box-shadow:0 0 6px var(--grn);}
+.lr{background:var(--red);box-shadow:0 0 6px var(--red);}
+.la{background:var(--acc);box-shadow:0 0 6px var(--acc);}
+.lb{background:var(--blu);box-shadow:0 0 6px var(--blu);}
+.sp{flex:1;}
+.batt-w{display:flex;align-items:center;gap:7px;font-size:11px;}
+.batt-b{width:46px;height:13px;border:1px solid #333;border-radius:2px;overflow:hidden;}
+.batt-f{height:100%;background:linear-gradient(90deg,var(--grn),#76ff03);transition:width .6s;}
+.batt-t{width:4px;height:7px;background:#333;border-radius:0 2px 2px 0;margin-left:1px;}
+.btn-rth{background:transparent;color:var(--acc);border:1px solid var(--abdr);padding:7px 14px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:4px;cursor:pointer;transition:.25s;}
+.btn-rth:hover{background:var(--adim);box-shadow:0 0 10px var(--aglow);}
+.btn-es{background:var(--red);color:#fff;border:none;padding:7px 16px;font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;border-radius:4px;cursor:pointer;animation:es-pulse 2s infinite;}
+@keyframes es-pulse{0%,100%{box-shadow:0 0 8px var(--red);}50%{box-shadow:0 0 22px var(--red),0 0 44px rgba(255,60,60,.25);}}
+.btn-es:hover{filter:brightness(1.3);}
+
+/* ── TOAST ALERTS ── */
+#toast-wrap{position:fixed;top:62px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:6px;font-size:11px;letter-spacing:.5px;border:1px solid;pointer-events:all;animation:toast-in .3s ease;min-width:260px;backdrop-filter:blur(8px);}
+@keyframes toast-in{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
+.toast-warn{background:rgba(22,18,5,.9);border-color:var(--abdr);color:var(--acc);}
+.toast-err {background:rgba(22,5,5,.9); border-color:rgba(255,60,60,.4);color:var(--red);}
+.toast-ok  {background:rgba(5,22,12,.9);border-color:rgba(0,230,118,.4);color:var(--grn);}
+.toast-info{background:rgba(5,14,22,.9);border-color:rgba(0,188,212,.4);color:var(--blu);}
+.toast-close{margin-left:auto;cursor:pointer;opacity:.6;}
+
+/* ── LAYOUT ── */
+.layout{display:flex;flex:1;overflow:hidden;}
+nav{width:66px;background:var(--mid);border-right:1px solid var(--bdr);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px;flex-shrink:0;}
+.ni{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;color:var(--mute);transition:.22s;position:relative;border:1px solid transparent;font-size:15px;}
+.ni:hover{color:var(--text);background:var(--panel);}
+.ni.active{color:var(--acc);border-color:var(--abdr);background:var(--adim);box-shadow:inset 0 0 12px var(--adim),0 0 7px var(--aglow);}
+.ni::after{content:attr(data-tip);position:absolute;left:54px;top:50%;transform:translateY(-50%);background:#000;color:var(--text);font-size:10px;padding:4px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;opacity:0;transition:.18s;border:1px solid var(--bdr);}
+.ni:hover::after{opacity:1;}
+.nsep{width:28px;height:1px;background:var(--bdr);margin:3px 0;}
+main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:14px;gap:14px;}
+.page{display:none;flex-direction:column;flex:1;gap:14px;overflow:hidden;animation:fi .3s ease;}
+.page.active{display:flex;}
+@keyframes fi{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+/* ── CARDS ── */
+.card{background:var(--panel);border:1px solid var(--bdr);border-radius:6px;padding:14px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--abdr),transparent);}
+.ct{font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:2px;color:var(--acc);margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+.g12{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;}
+.c8{grid-column:span 8;} .c7{grid-column:span 7;} .c6{grid-column:span 6;}
+.c5{grid-column:span 5;} .c4{grid-column:span 4;} .c3{grid-column:span 3;}
+hr.dv{border:none;border-top:1px solid var(--bdr);margin:10px 0;}
+
+/* ── STAT ROW ── */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;flex-shrink:0;}
+.stat{background:var(--panel2);border:1px solid var(--bdr);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:5px;}
+.sl{font-size:9px;letter-spacing:2px;color:var(--mute);}
+.sv{font-family:'Orbitron',sans-serif;font-size:20px;}
+.su{font-size:10px;color:var(--mute);}
+.st{font-size:10px;display:flex;align-items:center;gap:4px;}
+
+/* ── VIDEO ── */
+.vid-wrap{width:100%;aspect-ratio:16/9;background:#070707;border-radius:4px;overflow:hidden;position:relative;border:1px solid var(--bdr);}
+.vid-hud{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:9px;z-index:5;}
+.hrow{display:flex;justify-content:space-between;}
+.htx{font-size:9px;letter-spacing:1px;color:rgba(240,165,0,.7);}
+.scan{position:absolute;top:-2px;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(0,188,212,.3),transparent);animation:scn 4s linear infinite;z-index:4;}
+@keyframes scn{0%{top:-2px;}100%{top:100%;}}
+.vfb{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#2a3040;z-index:3;background:#070707;}
+.vfb i{font-size:34px;margin-bottom:8px;display:block;}
+.vfb p{font-size:9px;letter-spacing:2px;line-height:1.6;}
+.vfb .cam-url{font-size:8px;color:rgba(240,165,0,.5);margin-top:6px;word-break:break-all;max-width:80%;}
+.vfb .retry-btn{margin-top:10px;padding:5px 14px;background:var(--adim);border:1px solid var(--abdr);color:var(--acc);border-radius:4px;font-size:9px;cursor:pointer;font-family:inherit;letter-spacing:1px;}
+.vfb .retry-btn:hover{background:rgba(240,165,0,.2);}
+.cam-state-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0;}
+.cam-state-dot.live{background:var(--grn);box-shadow:0 0 7px var(--grn);animation:campulse 1s infinite;}
+.cam-state-dot.connecting{background:var(--acc);box-shadow:0 0 7px var(--acc);animation:campulse .5s infinite;}
+.cam-state-dot.error{background:var(--red);box-shadow:0 0 7px var(--red);}
+@keyframes campulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+img.stream{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;display:none;}
+
+/* Snapshot gallery */
+.snap-btn{position:absolute;bottom:10px;right:10px;background:rgba(240,165,0,.85);border:none;color:#000;padding:6px 12px;border-radius:4px;font-size:10px;font-family:'Orbitron',sans-serif;font-weight:700;cursor:pointer;letter-spacing:1px;z-index:10;transition:.2s;}
+.snap-btn:hover{filter:brightness(1.2);}
+.snap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;overflow-y:auto;max-height:140px;}
+.snap-grid::-webkit-scrollbar{width:4px;}
+.snap-grid::-webkit-scrollbar-thumb{background:var(--bdr);}
+.snap-item{aspect-ratio:16/9;background:#000;border-radius:3px;overflow:hidden;border:1px solid var(--bdr);cursor:pointer;transition:.15s;position:relative;}
+.snap-item:hover{border-color:var(--abdr);}
+.snap-item img{width:100%;height:100%;object-fit:cover;}
+.snap-ts{position:absolute;bottom:2px;right:4px;font-size:7px;color:rgba(240,165,0,.8);}
+.snap-empty{font-size:9px;color:var(--mute);text-align:center;padding:16px;letter-spacing:1px;grid-column:span 3;}
+
+/* ── EVENT LOG ── */
+.elog{height:100%;overflow-y:auto;display:flex;flex-direction:column;gap:5px;}
+.elog::-webkit-scrollbar{width:4px;}
+.elog::-webkit-scrollbar-thumb{background:var(--bdr);}
+.logr{font-size:10px;padding:5px 8px;border-radius:3px;border-left:2px solid;display:flex;gap:7px;}
+.li{border-color:var(--blu);background:var(--bdim);}
+.lw{border-color:var(--acc);background:var(--adim);}
+.le{border-color:var(--red);background:var(--rdim);}
+.lo{border-color:var(--grn);background:var(--gdim);}
+.lts{color:var(--mute);flex-shrink:0;}
+
+/* ── D-PAD ── */
+.dpad-wrap{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.drow{display:flex;gap:5px;align-items:center;}
+.dbtn{width:62px;height:62px;display:flex;align-items:center;justify-content:center;background:var(--panel2);border:1px solid var(--bdr);border-radius:10px;cursor:pointer;font-size:22px;color:var(--mute);transition:.12s;user-select:none;-webkit-user-select:none;box-shadow:0 4px 0 #0a0d14;position:relative;}
+.dbtn:active{transform:translateY(2px);box-shadow:0 2px 0 #0a0d14;}
+.dbtn:hover{background:rgba(240,165,0,.07);color:var(--text);border-color:rgba(240,165,0,.15);}
+.dbtn.pressed{background:var(--adim);color:var(--acc);border-color:var(--abdr);box-shadow:0 0 14px var(--aglow),0 2px 0 #0a0d14;}
+.dkh{position:absolute;bottom:4px;right:5px;font-size:8px;color:var(--mute);}
+.dctr{width:62px;height:32px;display:flex;align-items:center;justify-content:center;}
+.dstop{width:46px;height:24px;display:flex;align-items:center;justify-content:center;border:2px solid var(--red);border-radius:5px;color:var(--red);font-size:9px;letter-spacing:1px;cursor:pointer;background:var(--rdim);transition:.15s;}
+.dstop:hover{background:rgba(255,60,60,.25);}
+
+/* Gamepad indicator */
+.gp-status{display:flex;align-items:center;gap:7px;font-size:10px;padding:6px 10px;border-radius:4px;background:var(--panel2);border:1px solid var(--bdr);}
+
+/* ── SLIDERS ── */
+.sdial{display:flex;flex-direction:column;gap:7px;}
+.slbl{font-size:10px;letter-spacing:1px;color:var(--mute);}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;background:var(--bdr);border-radius:2px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--acc);cursor:pointer;box-shadow:0 0 7px var(--aglow);}
+
+/* ── TOGGLE ── */
+.tgl{display:flex;align-items:center;gap:9px;cursor:pointer;}
+.sw{width:36px;height:19px;background:#1a2030;border-radius:10px;position:relative;border:1px solid var(--bdr);transition:.28s;}
+.sw::after{content:'';position:absolute;width:13px;height:13px;border-radius:50%;background:#444;top:2px;left:2px;transition:.28s;}
+input[type=checkbox]:checked+.sw{background:var(--acc);border-color:var(--acc);}
+input[type=checkbox]:checked+.sw::after{left:19px;background:#000;}
+input[type=checkbox]{display:none;}
+.tlbl{font-size:11px;letter-spacing:1px;}
+
+/* ── RADAR ── */
+.radar{width:210px;height:210px;background:#030b05;border-radius:50%;margin:0 auto;border:1px solid #1a2e1a;position:relative;overflow:hidden;box-shadow:inset 0 0 28px rgba(0,0,0,.85),0 0 12px rgba(0,230,118,.07);flex-shrink:0;}
+.rring{position:absolute;border-radius:50%;border:1px solid rgba(0,230,118,.07);}
+.rcross{position:absolute;background:rgba(0,230,118,.06);}
+.sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg at 50% 50%,transparent 0deg,transparent 295deg,rgba(0,230,118,.02) 305deg,rgba(0,230,118,.08) 320deg,rgba(0,230,118,.2) 340deg,rgba(0,230,118,.58) 355deg,rgba(0,230,118,0) 360deg);transform-origin:50% 50%;animation:rspin 3s linear infinite;}
+.rcenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:5px;height:5px;border-radius:50%;background:var(--grn);box-shadow:0 0 8px var(--grn);z-index:3;}
+@keyframes rspin{from{transform:rotate(-90deg);}to{transform:rotate(270deg);}}
+.rblip{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--grn);box-shadow:0 0 6px var(--grn);transform:translate(-50%,-50%);animation:rblip 3s ease-out infinite;z-index:2;}
+@keyframes rblip{0%{opacity:1;}70%{opacity:.7;}100%{opacity:0;}}
+.harc{position:absolute;border:2px solid var(--red);opacity:0;transition:.3s;border-radius:50%;}
+.harc.on{opacity:1;animation:hblink .6s infinite alternate;}
+@keyframes hblink{from{opacity:.2;}to{opacity:1;}}
+
+/* ── MISSION MAP ── */
+.mmap{width:100%;height:100%;background:linear-gradient(rgba(0,188,212,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,188,212,.04) 1px,transparent 1px);background-size:28px 28px;background-color:#050b0e;border-radius:4px;position:relative;overflow:hidden;border:1px solid var(--bdr);}
+.mmap-home{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--grn);box-shadow:0 0 12px var(--grn);transform:translate(-50%,-50%);}
+.mmap-home::after{content:'HOME';position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--grn);letter-spacing:1px;white-space:nowrap;}
+.mmap-rover{position:absolute;width:11px;height:11px;border-radius:2px;background:var(--acc);box-shadow:0 0 9px var(--acc);transform:translate(-50%,-50%);transition:left 1s,top 1s;}
+.mmap-rover::after{content:'';position:absolute;top:-4px;left:50%;transform:translateX(-50%);border:4px solid transparent;border-bottom:6px solid var(--acc);}
+.mmap-wp{position:absolute;width:9px;height:9px;border-radius:50%;border:2px solid var(--blu);background:var(--bdim);transform:translate(-50%,-50%);cursor:pointer;}
+.mmap-fence{position:absolute;border:2px dashed rgba(255,60,60,.5);border-radius:4px;pointer-events:none;}
+.mbtn{padding:9px 14px;border-radius:4px;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:1px;cursor:pointer;border:1px solid;transition:.22s;}
+.mb-a{background:var(--adim);color:var(--acc);border-color:var(--abdr);}
+.mb-a:hover{background:rgba(240,165,0,.22);}
+.mb-r{background:var(--rdim);color:var(--red);border-color:rgba(255,60,60,.3);}
+.mb-r:hover{background:rgba(255,60,60,.22);}
+.mb-b{background:var(--bdim);color:var(--blu);border-color:rgba(0,188,212,.3);}
+.mb-b:hover{background:rgba(0,188,212,.22);}
+.mb-g{background:var(--gdim);color:var(--grn);border-color:rgba(0,230,118,.3);}
+.mb-g:hover{background:rgba(0,230,118,.22);}
+.wp-list{display:flex;flex-direction:column;gap:5px;max-height:150px;overflow-y:auto;}
+.wp-item{display:flex;align-items:center;gap:7px;padding:7px;background:var(--panel2);border:1px solid var(--bdr);border-radius:4px;font-size:10px;}
+.wp-num{width:17px;height:17px;border-radius:50%;background:var(--bdim);border:1px solid var(--blu);display:flex;align-items:center;justify-content:center;color:var(--blu);font-size:8px;flex-shrink:0;}
+.wp-del{color:var(--red);cursor:pointer;background:none;border:none;padding:0 4px;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-size:9px;letter-spacing:1px;}
+.bw{background:var(--adim);color:var(--acc);border:1px solid rgba(240,165,0,.3);}
+.bo{background:var(--gdim);color:var(--grn);border:1px solid rgba(0,230,118,.3);}
+.be{background:var(--rdim);color:var(--red);border:1px solid rgba(255,60,60,.3);}
+
+/* ── ARM ── */
+.jcard{display:flex;flex-direction:column;gap:4px;padding:11px;background:var(--panel2);border:1px solid var(--bdr);border-radius:6px;}
+.jh{display:flex;justify-content:space-between;font-size:11px;}
+.prbtn{padding:7px 11px;background:var(--panel2);border:1px solid var(--bdr);border-radius:4px;font-size:10px;cursor:pointer;color:var(--mute);transition:.2s;letter-spacing:1px;}
+.prbtn:hover{background:var(--adim);color:var(--acc);border-color:var(--abdr);}
+
+/* ── SENSORS ── */
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.scard{background:var(--panel2);border:1px solid var(--bdr);border-radius:7px;padding:14px;}
+.sico{font-size:18px;margin-bottom:8px;}
+.snm{font-size:9px;letter-spacing:2px;color:var(--mute);margin-bottom:5px;}
+.sval{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:700;margin-bottom:3px;}
+.sunit{font-size:10px;color:var(--mute);}
+.sbar-w{height:3px;background:var(--bdr);border-radius:2px;margin-top:9px;overflow:hidden;}
+.sbar{height:100%;border-radius:2px;transition:width .8s ease;}
+
+/* 3D IMU Cube */
+.imu-scene{width:110px;height:110px;perspective:300px;margin:0 auto;}
+.imu-cube{width:100%;height:100%;transform-style:preserve-3d;transform:rotateX(0deg) rotateY(0deg);transition:transform .4s ease;}
+.imu-face{position:absolute;width:110px;height:110px;border:1px solid rgba(240,165,0,.3);display:flex;align-items:center;justify-content:center;font-size:9px;letter-spacing:1px;color:rgba(240,165,0,.5);font-family:'Orbitron',sans-serif;}
+.imu-face.front {background:rgba(240,165,0,.04);transform:translateZ(55px);}
+.imu-face.back  {background:rgba(240,165,0,.02);transform:rotateY(180deg) translateZ(55px);}
+.imu-face.left  {background:rgba(0,188,212,.03);transform:rotateY(-90deg) translateZ(55px);}
+.imu-face.right {background:rgba(0,188,212,.03);transform:rotateY(90deg) translateZ(55px);}
+.imu-face.top   {background:rgba(0,230,118,.03);transform:rotateX(90deg) translateZ(55px);}
+.imu-face.bottom{background:rgba(0,230,118,.02);transform:rotateX(-90deg) translateZ(55px);}
+
+/* ── LIVE GRAPHS ── */
+.graph-wrap{display:flex;flex-direction:column;gap:10px;}
+.graph-row{background:var(--panel2);border:1px solid var(--bdr);border-radius:6px;padding:10px;}
+.graph-lbl{font-size:9px;letter-spacing:2px;color:var(--mute);margin-bottom:6px;display:flex;justify-content:space-between;}
+canvas.gc{width:100%;height:55px;display:block;}
+
+/* ── POWER ── */
+.ring-w{display:flex;justify-content:center;align-items:center;padding:8px;position:relative;}
+.ring-val{position:absolute;text-align:center;}
+
+/* ── OTA PAGE ── */
+.ota-drop{width:100%;border:2px dashed var(--bdr);border-radius:8px;padding:32px;text-align:center;cursor:pointer;transition:.25s;position:relative;}
+.ota-drop:hover,.ota-drop.drag-over{border-color:var(--abdr);background:var(--adim);}
+.ota-drop i{font-size:36px;color:var(--acc);margin-bottom:12px;display:block;}
+.ota-drop p{font-size:12px;color:var(--mute);letter-spacing:1px;}
+.ota-drop .ota-fname{font-size:13px;color:var(--acc);margin-top:6px;letter-spacing:1px;}
+#ota-file-input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.ota-info{display:flex;flex-direction:column;gap:8px;font-size:11px;}
+.ota-kv{display:flex;justify-content:space-between;align-items:center;}
+.ota-k{color:var(--mute);}
+.ota-v{color:var(--text);}
+.ota-pbar-wrap{height:8px;background:var(--bdr);border-radius:4px;overflow:hidden;margin:6px 0;}
+.ota-pbar{height:100%;width:0%;background:linear-gradient(90deg,var(--acc),#ffd740);transition:width .3s;border-radius:4px;}
+.ota-status{font-size:12px;letter-spacing:1px;text-align:center;padding:10px;border-radius:4px;}
+.osta-idle{color:var(--mute);}
+.osta-uploading{color:var(--acc);animation:pulse .8s infinite alternate;}
+.osta-ok  {color:var(--grn);}
+.osta-err {color:var(--red);}
+.osta-reboot{color:var(--blu);animation:pulse .6s infinite alternate;}
+@keyframes pulse{from{opacity:.5;}to{opacity:1;}}
+.btn-flash{width:100%;padding:12px;background:var(--acc);color:#000;border:none;border-radius:4px;font-family:'Orbitron',sans-serif;font-weight:700;font-size:12px;letter-spacing:2px;cursor:pointer;transition:.2s;margin-top:6px;}
+.btn-flash:hover:not(:disabled){filter:brightness(1.15);box-shadow:0 0 16px var(--aglow);}
+.btn-flash:disabled{opacity:.4;cursor:not-allowed;}
+.ota-log{background:#000;border:1px solid var(--bdr);border-radius:4px;padding:10px;font-size:10px;height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;}
+.ota-log::-webkit-scrollbar{width:4px;}
+.ota-log::-webkit-scrollbar-thumb{background:var(--bdr);}
+.ota-li{display:flex;gap:8px;}
+.ota-li .ts{color:#333;}
+.ota-li .ok{color:var(--grn);}
+.ota-li .er{color:var(--red);}
+.ota-li .in{color:var(--blu);}
+.ota-li .wn{color:var(--acc);}
+
+/* ── TERMINAL ── */
+.term{background:#000;border:1px solid var(--bdr);border-radius:6px;padding:14px;flex:1;display:flex;flex-direction:column;overflow:hidden;font-size:12px;}
+.term-out{flex:1;overflow-y:auto;margin-bottom:10px;}
+.term-out::-webkit-scrollbar{width:4px;}
+.term-out::-webkit-scrollbar-thumb{background:var(--bdr);}
+.tline{margin-bottom:3px;line-height:1.5;}
+.tts{color:#2a2a2a;margin-right:7px;}
+.ttx{color:#00bcd4;} .trx{color:#0f0;} .tsys{color:#444;}
+.trow{display:flex;gap:7px;align-items:center;}
+.tprompt{color:var(--acc);}
+.tinput{flex:1;background:transparent;border:none;outline:none;color:#0f0;font-family:'Share Tech Mono',monospace;font-size:12px;caret-color:var(--acc);}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;}
+.chip{padding:4px 9px;background:var(--panel2);border:1px solid var(--bdr);border-radius:4px;font-size:10px;cursor:pointer;transition:.2s;color:var(--mute);}
+.chip:hover{color:var(--acc);border-color:var(--abdr);}
+.cursor{animation:cur .8s infinite;}
+@keyframes cur{0%,100%{opacity:1;}50%{opacity:0;}}
+
+/* ── SETTINGS ── */
+.stgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.ssect{margin-bottom:16px;}
+.sstt{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2px;color:var(--mute);margin-bottom:10px;border-bottom:1px solid var(--bdr);padding-bottom:5px;}
+.irow{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.flbl{font-size:9px;letter-spacing:2px;color:var(--acc);}
+.finp{background:#000;border:1px solid var(--bdr);color:var(--text);padding:9px 11px;border-radius:4px;outline:none;font-family:inherit;font-size:12px;transition:.2s;width:100%;}
+.finp:focus{border-color:var(--acc);box-shadow:0 0 7px var(--aglow);}
+.fsel{background:#000;border:1px solid var(--bdr);color:var(--text);padding:9px 11px;border-radius:4px;outline:none;font-family:inherit;font-size:12px;width:100%;-webkit-appearance:none;}
+.bsave{background:var(--acc);color:#000;border:none;padding:10px 18px;font-family:'Orbitron',sans-serif;font-weight:700;font-size:10px;letter-spacing:2px;cursor:pointer;border-radius:4px;transition:.2s;}
+.bsave:hover{filter:brightness(1.15);box-shadow:0 0 14px var(--aglow);}
+.scrlY{overflow-y:auto;flex:1;}
+.scrlY::-webkit-scrollbar{width:4px;}
+.scrlY::-webkit-scrollbar-thumb{background:var(--bdr);}
+.dev-card{background:var(--panel2);border:1px solid var(--bdr);border-radius:6px;padding:12px;transition:.25s;}
+.dev-card.online{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.04);}
+.dev-card.offline{border-color:rgba(255,60,60,.25);}
+.dev-ping{font-size:8px;color:var(--mute);margin-left:auto;}
+
+/* Session recorder */
+.rec-dot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);}
+.rec-dot.off{background:var(--mute);box-shadow:none;}
+.rec-dot.on{animation:recdot .8s infinite alternate;}
+@keyframes recdot{from{opacity:.4;}to{opacity:1;}}
+
+/* ── VIRTUAL JOYSTICK (ARM) ── */
+.joy-row{display:flex;justify-content:center;gap:30px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--bdr);}
+.joy-box{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.joy-title{font-size:9px;letter-spacing:2px;color:var(--acc);font-family:'Orbitron',sans-serif;}
+.joy-zone{width:120px;height:120px;border-radius:50%;background:var(--panel2);border:2px solid var(--bdr);position:relative;cursor:crosshair;user-select:none;touch-action:none;transition:border-color .2s;}
+.joy-zone:hover{border-color:rgba(240,165,0,.3);}
+.joy-zone.active{border-color:var(--abdr);box-shadow:0 0 16px var(--aglow);}
+.joy-ring{position:absolute;inset:12px;border-radius:50%;border:1px dashed rgba(240,165,0,.1);}
+.joy-cross-h{position:absolute;height:1px;background:rgba(240,165,0,.07);top:50%;left:15%;right:15%;}
+.joy-cross-v{position:absolute;width:1px;background:rgba(240,165,0,.07);left:50%;top:15%;bottom:15%;}
+.joy-stick{width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 35% 35%,var(--acc),rgba(240,165,0,.3));border:2px solid var(--acc);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:0 0 12px var(--aglow);pointer-events:none;transition:box-shadow .15s;}
+.joy-zone.active .joy-stick{box-shadow:0 0 22px var(--aglow);}
+.joy-axes-wrap{display:flex;justify-content:space-between;width:120px;}
+.joy-axis-lbl{font-size:8px;color:var(--mute);letter-spacing:1px;}
+.joy-axis-val{font-size:8px;color:var(--acc);font-family:'Orbitron',sans-serif;}
+.joy-speed-wrap{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.joy-speed-lbl{font-size:9px;color:var(--mute);letter-spacing:1px;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">TITAN<span>-</span>V2</div>
+  <div class="tbdiv"></div>
+  <div class="pill"><div class="led lr" id="conn-led"></div><span id="conn-lbl">DISCONNECTED</span></div>
+  <div class="pill"><i class="fas fa-satellite-dish" style="color:var(--blu);font-size:10px;"></i><span id="ip-lbl">–.–.–.–</span></div>
+  <div class="pill"><i class="fas fa-map-marker-alt" style="color:var(--grn);font-size:10px;"></i><span id="gps-lbl">GPS: 12.9716°N 77.5946°E</span></div>
+  <div class="pill"><div class="rec-dot off" id="rec-dot"></div><span id="rec-lbl" style="font-size:11px;">REC OFF</span></div>
+  <div class="sp"></div>
+  <div class="batt-w">
+    <i class="fas fa-bolt" style="color:var(--grn);font-size:10px;"></i>
+    <span id="batt-pct" style="font-size:11px;">72%</span>
+    <div class="batt-b"><div class="batt-f" id="batt-f" style="width:72%;"></div></div>
+    <div class="batt-t"></div>
+  </div>
+  <div class="tbdiv"></div>
+  <div class="pill"><i class="fas fa-gamepad" style="font-size:10px;color:var(--mute);" id="gp-icon"></i><span id="gp-lbl" style="font-size:11px;">NO GAMEPAD</span></div>
+  <div class="tbdiv"></div>
+  <button class="btn-rth" onclick="returnHome()"><i class="fas fa-home"></i> RETURN HOME</button>
+  <button class="btn-es" onclick="emergencyStop()" id="estop-btn"><i class="fas fa-power-off"></i> E-STOP</button>
+</div>
+
+<!-- TOASTS -->
+<div id="toast-wrap"></div>
+
+<!-- LAYOUT -->
+<div class="layout">
+<nav>
+  <div class="ni active" id="ni-dashboard" onclick="sp('dashboard',this)" data-tip="Dashboard"><i class="fas fa-th-large"></i></div>
+  <div class="ni" id="ni-drive"     onclick="sp('drive',this)"     data-tip="Drive Control"><i class="fas fa-gamepad"></i></div>
+  <div class="ni" id="ni-mission"   onclick="sp('mission',this)"   data-tip="Mission Planner"><i class="fas fa-map"></i></div>
+  <div class="ni" id="ni-arm"       onclick="sp('arm',this)"       data-tip="Robotic Arm"><i class="fas fa-robot"></i></div>
+  <div class="nsep"></div>
+  <div class="ni" id="ni-sensors"   onclick="sp('sensors',this)"   data-tip="Sensor Hub"><i class="fas fa-wave-square"></i></div>
+  <div class="ni" id="ni-power"     onclick="sp('power',this)"     data-tip="Power Monitor"><i class="fas fa-bolt"></i></div>
+  <div class="ni" id="ni-terminal"  onclick="sp('terminal',this)"  data-tip="Terminal"><i class="fas fa-terminal"></i></div>
+
+  <div class="nsep"></div>
+  <div class="ni" id="ni-settings"  onclick="sp('settings',this)"  data-tip="Settings"><i class="fas fa-cog"></i></div>
+</nav>
+
+<main>
+
+<!-- ══ DASHBOARD ══ -->
+<div id="page-dashboard" class="page active">
+  <div class="stat-row">
+    <div class="stat"><div class="sl">CORE TEMP</div><div><span class="sv" id="d-temp">42.3</span><span class="su"> °C</span></div><div class="st" style="color:var(--red);">↑ +1.2 from boot</div></div>
+    <div class="stat"><div class="sl">MOTOR SPEED</div><div><span class="sv" id="d-speed">0</span><span class="su"> cm/s</span></div><div class="st" style="color:var(--mute);">– idle</div></div>
+    <div class="stat"><div class="sl">DIST. TRAVELED</div><div><span class="sv" id="d-dist">12.4</span><span class="su"> m</span></div><div class="st" style="color:var(--grn);">↑ Session</div></div>
+    <div class="stat"><div class="sl">UPTIME</div><div><span class="sv" id="d-uptime" style="font-size:17px;">00:00:00</span></div><div class="st" style="color:var(--mute);">Since power-on</div></div>
+  </div>
+  <div class="g12" style="flex:1;overflow:hidden;">
+    <div class="card c8" style="display:flex;flex-direction:column;">
+      <div class="ct"><i class="fas fa-video"></i> LIVE FEED — CAM_01
+        <span style="margin-left:auto;font-size:9px;color:var(--mute);" id="snap-count">0 SNAPSHOTS</span>
+      </div>
+      <div class="vid-wrap" style="flex:1;height:auto;" id="vid-container">
+        <!-- The actual stream img -->
+        <img id="main-stream" class="stream" src="" alt="">
+        <!-- State overlays -->
+        <div class="vfb" id="cam-state-idle">
+          <i class="fas fa-video-slash" style="color:#2a3040;"></i>
+          <p>NO VIDEO STREAM<br>Configure URL in Settings</p>
+          <div class="cam-url" id="cam-url-hint"></div>
+        </div>
+        <div class="vfb" id="cam-state-connecting" style="display:none;">
+          <i class="fas fa-circle-notch fa-spin" style="color:var(--acc);font-size:28px;"></i>
+          <p style="color:var(--acc);margin-top:8px;">CONNECTING TO CAMERA…</p>
+          <div class="cam-url" id="cam-url-connecting"></div>
+        </div>
+        <div class="vfb" id="cam-state-error" style="display:none;">
+          <i class="fas fa-exclamation-triangle" style="color:var(--red);font-size:28px;"></i>
+          <p style="color:var(--red);margin-top:8px;">STREAM FAILED</p>
+          <div class="cam-url" id="cam-url-error"></div>
+          <button class="retry-btn" onclick="retryStream()">↺ RETRY</button>
+        </div>
+        <!-- HUD overlay (always on top) -->
+        <div class="vid-hud">
+          <div class="hrow"><span class="htx">CAM_01 // MAIN</span><span class="htx" id="hud-time">--:--:--</span></div>
+          <div class="hrow"><span class="htx" id="hud-gps">GPS: 12.9716°N 77.5946°E</span><span class="htx" id="hud-conn">● OFFLINE</span></div>
+        </div>
+        <div class="scan" id="cam-scan" style="display:none;"></div>
+        <button class="snap-btn" onclick="takeSnapshot()"><i class="fas fa-camera"></i> SNAP</button>
+        <canvas id="snap-canvas" style="display:none;"></canvas>
+      </div>
+      <!-- Snapshot gallery -->
+      <div style="margin-top:10px;">
+        <div class="ct" style="margin-bottom:8px;"><i class="fas fa-images"></i> SNAPSHOT GALLERY</div>
+        <div class="snap-grid" id="snap-grid"><div class="snap-empty">No snapshots yet — press SNAP above</div></div>
+      </div>
+    </div>
+    <div class="card c4" style="display:flex;flex-direction:column;overflow:hidden;">
+      <div class="ct"><i class="fas fa-list-alt"></i> EVENT LOG</div>
+      <div class="elog" id="event-log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DRIVE ══ -->
+<div id="page-drive" class="page">
+  <div class="g12" style="flex:1;overflow:hidden;">
+    <div class="card c7" style="display:flex;flex-direction:column;gap:14px;">
+      <div class="ct"><i class="fas fa-gamepad"></i> MANUAL DRIVE CONTROL</div>
+      <div class="vid-wrap" style="flex:1;min-height:0;">
+        <!-- Drive page shows same stream via separate img -->
+        <img id="drive-stream" class="stream" src="" alt="">
+        <div class="vfb" id="drive-cam-fb">
+          <i class="fas fa-car-side" style="color:#2a3040;"></i>
+          <p>DRIVER CAM — OFFLINE</p>
+        </div>
+        <div class="vid-hud">
+          <div class="hrow"><span class="htx" id="dr-mode">MODE: MANUAL</span><span class="htx" id="dr-spd">SPD: 0 cm/s</span></div>
+          <div class="hrow"><span class="htx" id="dr-hdg">HDG: 000°</span><span class="htx" id="dr-key">KEY: –</span></div>
+        </div>
+        <div class="scan"></div>
+      </div>
+      <div style="display:flex;gap:20px;align-items:center;justify-content:center;padding:4px 0;flex-wrap:wrap;">
+        <!-- D-PAD -->
+        <div class="dpad-wrap">
+          <div class="drow">
+            <div class="dbtn" id="btn-w" onmousedown="sd('W')" onmouseup="stopDrive()" ontouchstart="sd('W')" ontouchend="stopDrive()">
+              <i class="fas fa-arrow-up"></i><span class="dkh">W</span>
+            </div>
+          </div>
+          <div class="drow">
+            <div class="dbtn" id="btn-a" onmousedown="sd('A')" onmouseup="stopDrive()" ontouchstart="sd('A')" ontouchend="stopDrive()">
+              <i class="fas fa-arrow-left"></i><span class="dkh">A</span>
+            </div>
+            <div class="dctr"><div class="dstop" onclick="stopDrive()">STOP</div></div>
+            <div class="dbtn" id="btn-d" onmousedown="sd('D')" onmouseup="stopDrive()" ontouchstart="sd('D')" ontouchend="stopDrive()">
+              <i class="fas fa-arrow-right"></i><span class="dkh">D</span>
+            </div>
+          </div>
+          <div class="drow">
+            <div class="dbtn" id="btn-s" onmousedown="sd('S')" onmouseup="stopDrive()" ontouchstart="sd('S')" ontouchend="stopDrive()">
+              <i class="fas fa-arrow-down"></i><span class="dkh">S</span>
+            </div>
+          </div>
+          <div style="font-size:9px;color:var(--mute);letter-spacing:1px;text-align:center;margin-top:3px;">WASD / ARROWS / GAMEPAD</div>
+        </div>
+        <!-- Sliders -->
+        <div style="display:flex;flex-direction:column;gap:12px;min-width:175px;">
+          <div class="sdial"><div class="slbl">THROTTLE — <span id="thr-v" style="color:var(--acc);">50%</span></div><input type="range" min="0" max="100" value="50" id="throttle" oninput="document.getElementById('thr-v').textContent=this.value+'%'"></div>
+          <div class="sdial"><div class="slbl">TURN RATE — <span id="trn-v" style="color:var(--acc);">50%</span></div><input type="range" min="0" max="100" value="50" id="turnrate" oninput="document.getElementById('trn-v').textContent=this.value+'%'"></div>
+          <hr class="dv" style="margin:2px 0;">
+          <label class="tgl" for="auto-tgl">
+            <input type="checkbox" id="auto-tgl" onchange="toggleAuto(this.checked)">
+            <div class="sw"></div><span class="tlbl">AUTOPILOT</span>
+          </label>
+          <!-- Controller Mode Toggle -->
+          <div style="margin-top:6px;padding:8px 10px;background:var(--panel2);border:1px solid var(--bdr);border-radius:5px;">
+            <div style="font-size:9px;letter-spacing:1px;color:var(--mute);margin-bottom:7px;">CONTROLLER MODE</div>
+            <div style="display:flex;align-items:center;gap:9px;">
+              <span style="font-size:10px;" id="ctrl-mode-lbl-drive" style="color:var(--acc);">🚗 DRIVE</span>
+              <label class="tgl" for="ctrl-mode-tgl" style="margin:0;">
+                <input type="checkbox" id="ctrl-mode-tgl" onchange="setControllerMode(this.checked)">
+                <div class="sw"></div>
+              </label>
+              <span style="font-size:10px;color:var(--mute);" id="ctrl-mode-lbl-arm">🦾 ARM</span>
+            </div>
+            <div style="font-size:8px;color:var(--mute);margin-top:5px;letter-spacing:1px;" id="ctrl-mode-hint">L-Stick: Fwd/Back/Turn</div>
+          </div>
+          <div class="gp-status" id="gp-status-box">
+            <i class="fas fa-gamepad" style="color:var(--mute);"></i>
+            <span id="gp-name-disp" style="font-size:10px;color:var(--mute);">No gamepad detected</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- RADAR -->
+    <div class="card c5" style="display:flex;flex-direction:column;gap:12px;overflow:hidden;">
+      <div class="ct"><i class="fas fa-broadcast-tower"></i> PROXIMITY RADAR</div>
+      <div class="radar">
+        <div class="rring" style="inset:10%;"></div>
+        <div class="rring" style="inset:30%;"></div>
+        <div class="rring" style="inset:50%;"></div>
+        <div class="rcross" style="width:1px;top:0;bottom:0;left:50%;"></div>
+        <div class="rcross" style="height:1px;left:0;right:0;top:50%;"></div>
+        <div class="sweep"></div>
+        <div class="rcenter"></div>
+        <div class="rblip" id="blip1" style="left:62%;top:34%;"></div>
+        <div class="rblip" style="left:30%;top:62%;animation-delay:1.5s;"></div>
+        <div class="rblip" style="left:74%;top:58%;animation-delay:2.2s;"></div>
+        <div class="harc" id="h-n" style="top:7px;left:50%;transform:translateX(-50%);width:68px;height:17px;border-radius:34px 34px 0 0;border-bottom:none;"></div>
+        <div class="harc on" id="h-w" style="left:7px;top:50%;transform:translateY(-50%);width:17px;height:68px;border-radius:34px 0 0 34px;border-right:none;"></div>
+        <div class="harc" id="h-e" style="right:7px;top:50%;transform:translateY(-50%);width:17px;height:68px;border-radius:0 34px 34px 0;border-left:none;"></div>
+        <div class="harc" id="h-s" style="bottom:7px;left:50%;transform:translateX(-50%);width:68px;height:17px;border-radius:0 0 34px 34px;border-top:none;"></div>
+        <i class="fas fa-car-side" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#3a4a3a;font-size:12px;z-index:1;"></i>
+      </div>
+      <div id="coll-alert" style="text-align:center;color:var(--red);font-size:10px;letter-spacing:2px;">[ COLLISION RISK: WEST — 0.4m ]</div>
+      <hr class="dv">
+      <div class="ct"><i class="fas fa-tachometer-alt"></i> PROXIMITY</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:11px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">▲ NORTH (F)</span><span style="color:var(--grn);" id="prox-n">– m</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">▼ SOUTH (B)</span><span style="color:var(--grn);" id="prox-s">– m</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">► EAST (R)</span><span style="color:var(--grn);" id="prox-e">– m</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">◄ WEST (L)</span><span style="color:var(--grn);" id="prox-w">– m</span></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ MISSION ══ -->
+<div id="page-mission" class="page">
+  <div class="g12" style="flex:1;overflow:hidden;">
+    <div class="card c8" style="display:flex;flex-direction:column;">
+      <div class="ct"><i class="fas fa-map-marked-alt"></i> MISSION MAP — <span style="color:var(--blu);font-size:9px;" id="map-status">IDLE</span>
+        <span style="margin-left:auto;font-size:9px;color:var(--mute);">Click = Waypoint | Shift+Click = Geofence corner</span>
+      </div>
+      <div class="mmap" id="mmap" style="flex:1;" onclick="mapClick(event)">
+        <svg id="map-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></svg>
+        <div class="mmap-home" style="left:50%;top:80%;" id="map-home"></div>
+        <div class="mmap-rover" style="left:55%;top:70%;" id="map-rover"></div>
+      </div>
+    </div>
+    <div class="card c4" style="display:flex;flex-direction:column;gap:12px;overflow:hidden;">
+      <div class="ct"><i class="fas fa-route"></i> MISSION CONTROL</div>
+      <div style="font-family:'Orbitron',sans-serif;font-size:13px;color:var(--blu);" id="rover-gps">12.9716 °N<br>77.5946 °E</div>
+      <div style="font-size:9px;color:var(--mute);">HOME: 12.9716°N 77.5946°E</div>
+      <hr class="dv">
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <button class="mbtn mb-g" onclick="startMission()"><i class="fas fa-play"></i> START MISSION</button>
+        <button class="mbtn mb-r" onclick="abortMission()"><i class="fas fa-stop"></i> ABORT MISSION</button>
+        <button class="mbtn mb-a" onclick="returnHome()"><i class="fas fa-home"></i> RETURN HOME</button>
+        <button class="mbtn mb-b" onclick="clearAll()"><i class="fas fa-trash"></i> CLEAR ALL</button>
+      </div>
+      <hr class="dv">
+      <div class="ct" style="margin-bottom:6px;"><i class="fas fa-map-pin"></i> WAYPOINTS (<span id="wp-cnt">0</span>)</div>
+      <div class="wp-list" id="wp-list"></div>
+      <hr class="dv">
+      <div style="font-size:10px;display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">EST. DISTANCE</span><span id="est-d">0 m</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">ETA</span><span id="eta-v">–</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">STATUS</span><span class="badge bw" id="mis-st">IDLE</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ARM ══ -->
+<div id="page-arm" class="page">
+  <div class="g12" style="flex:1;overflow:hidden;">
+
+    <!-- LEFT: Joint sliders -->
+    <div class="card c4" style="display:flex;flex-direction:column;gap:9px;overflow:hidden;">
+      <div class="ct"><i class="fas fa-sliders-h"></i> JOINT CONTROL</div>
+      <div id="arm-ctrl" style="display:flex;flex-direction:column;gap:9px;overflow-y:auto;flex:1;"></div>
+      <hr class="dv">
+
+      <!-- Gripper direct buttons -->
+      <div class="ct" style="margin-bottom:6px;"><i class="fas fa-hand-rock"></i> GRIPPER</div>
+      <div style="display:flex;gap:7px;">
+        <button class="mbtn mb-g" style="flex:1;" onclick="sendArmCmd('GRIP','OPEN')">
+          <i class="fas fa-hand-paper"></i> OPEN
+        </button>
+        <button class="mbtn mb-r" style="flex:1;" onclick="sendArmCmd('GRIP','CLOSE')">
+          <i class="fas fa-hand-rock"></i> CLOSE
+        </button>
+      </div>
+      <hr class="dv">
+
+      <!-- Presets -->
+      <div class="ct" style="margin-bottom:6px;"><i class="fas fa-bookmark"></i> PRESETS</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;">
+        <button class="prbtn" onclick="armPreset('home')">HOME</button>
+        <button class="prbtn" onclick="armPreset('grab')">GRAB</button>
+        <button class="prbtn" onclick="armPreset('extend')">EXTEND</button>
+        <button class="prbtn" onclick="armPreset('stow')">STOW</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: SVG Visualizer + Joysticks -->
+    <div class="card c8" style="display:flex;flex-direction:column;">
+      <div class="ct"><i class="fas fa-gamepad"></i> ARM JOYSTICK CONTROL
+        <span style="margin-left:auto;font-size:9px;color:var(--mute);">DRAG TO CONTROL</span>
+      </div>
+
+      <!-- Joystick speed -->
+      <div class="joy-speed-wrap">
+        <span class="joy-speed-lbl">SPEED</span>
+        <input type="range" min="1" max="5" value="2" id="joy-speed" style="width:90px;">
+        <span style="font-size:9px;color:var(--acc);font-family:'Orbitron',sans-serif;" id="joy-spd-val">2</span>
+      </div>
+
+      <!-- Two joysticks -->
+      <div class="joy-row">
+        <!-- LEFT: Base + Shoulder -->
+        <div class="joy-box">
+          <div class="joy-title">LEFT STICK</div>
+          <div class="joy-zone" id="joy-left">
+            <div class="joy-ring"></div>
+            <div class="joy-cross-h"></div>
+            <div class="joy-cross-v"></div>
+            <div class="joy-stick" id="joy-left-stick"></div>
+          </div>
+          <div class="joy-axes-wrap">
+            <div style="text-align:center;">
+              <div class="joy-axis-lbl">←→ BASE</div>
+              <div class="joy-axis-val" id="jl-x">90°</div>
+            </div>
+            <div style="text-align:center;">
+              <div class="joy-axis-lbl">↑↓ SHOULDER</div>
+              <div class="joy-axis-val" id="jl-y">90°</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Arm + J1 -->
+        <div class="joy-box">
+          <div class="joy-title">RIGHT STICK</div>
+          <div class="joy-zone" id="joy-right">
+            <div class="joy-ring"></div>
+            <div class="joy-cross-h"></div>
+            <div class="joy-cross-v"></div>
+            <div class="joy-stick" id="joy-right-stick"></div>
+          </div>
+          <div class="joy-axes-wrap">
+            <div style="text-align:center;">
+              <div class="joy-axis-lbl">←→ ARM</div>
+              <div class="joy-axis-val" id="jr-x">90°</div>
+            </div>
+            <div style="text-align:center;">
+              <div class="joy-axis-lbl">↑↓ WRIST</div>
+              <div class="joy-axis-val" id="jr-y">90°</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ct" style="margin-bottom:8px;"><i class="fas fa-drafting-compass"></i> ARM VISUALIZER — 6-DOF</div>
+      <svg id="arm-svg" viewBox="0 0 500 500" style="width:100%;flex:1;">
+        <defs><filter id="gf"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        <!-- Base platform -->
+        <rect x="200" y="450" width="100" height="12" rx="4" fill="#1a2030"/>
+        <ellipse cx="250" cy="452" rx="40" ry="6" fill="rgba(240,165,0,0.12)" stroke="var(--acc)" stroke-width="1"/>
+        <text x="250" y="480" text-anchor="middle" font-size="9" fill="rgba(240,165,0,0.4)" font-family="monospace">BASE ROTATION</text>
+        <!-- Arm chain -->
+        <g id="arm-root" transform="translate(250,448)" filter="url(#gf)">
+          <!-- j1 = Base (rotation shown flat) -->
+          <g id="j1g">
+            <circle cx="0" cy="0" r="10" fill="var(--panel)" stroke="var(--acc)" stroke-width="2"/>
+            <!-- j2 = Shoulder -->
+            <g id="j2g" transform="rotate(-90)">
+              <line x1="0" y1="0" x2="0" y2="-100" stroke="var(--acc)" stroke-width="11" stroke-linecap="round"/>
+              <circle cx="0" cy="0" r="8" fill="var(--panel)" stroke="var(--acc)" stroke-width="2"/>
+              <!-- j3 = Arm -->
+              <g id="j3g" transform="translate(0,-100)">
+                <line x1="0" y1="0" x2="0" y2="-80" stroke="var(--acc)" stroke-width="8" stroke-linecap="round" opacity=".85"/>
+                <circle cx="0" cy="0" r="7" fill="var(--panel)" stroke="var(--acc)" stroke-width="2"/>
+                <!-- j4 = Joint1 -->
+                <g id="j4g" transform="translate(0,-80)">
+                  <line x1="0" y1="0" x2="0" y2="-60" stroke="var(--acc)" stroke-width="6" stroke-linecap="round" opacity=".7"/>
+                  <circle cx="0" cy="0" r="5" fill="var(--panel)" stroke="var(--acc)" stroke-width="2"/>
+                  <!-- j5 = Joint2 -->
+                  <g id="j5g" transform="translate(0,-60)">
+                    <line x1="0" y1="0" x2="0" y2="-40" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".55"/>
+                    <circle cx="0" cy="0" r="4" fill="var(--panel)" stroke="#aaa" stroke-width="1.5"/>
+                    <!-- j6 = Gripper -->
+                    <g id="j6g" transform="translate(0,-40)">
+                      <circle cx="0" cy="0" r="4" fill="var(--panel)" stroke="#fff" stroke-width="1.5" opacity=".5"/>
+                      <line x1="-12" y1="0" x2="-8" y2="-18" stroke="#fff" stroke-width="2" opacity=".5" stroke-linecap="round" id="grip-l"/>
+                      <line x1="12"  y1="0" x2="8"  y2="-18" stroke="#fff" stroke-width="2" opacity=".5" stroke-linecap="round" id="grip-r"/>
+                    </g>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+        <!-- Grid lines -->
+        <g opacity=".04"><line x1="0" y1="450" x2="500" y2="450" stroke="#fff" stroke-width="1"/><line x1="250" y1="0" x2="250" y2="500" stroke="#fff" stroke-width="1"/></g>
+      </svg>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ SENSORS ══ -->
+<div id="page-sensors" class="page">
+  <div class="g12" style="flex:1;overflow:hidden;">
+    <!-- Sensor cards -->
+    <div class="c7" style="display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
+      <div class="sgrid">
+        <div class="scard"><div class="sico" style="color:#ff7043;">🌡</div><div class="snm">CORE TEMPERATURE</div><div class="sval" style="color:#ff7043;" id="s-temp">42.3</div><div class="sunit">°C</div><div class="sbar-w"><div class="sbar" style="background:#ff7043;width:42%;" id="sb-temp"></div></div></div>
+        <div class="scard"><div class="sico" style="color:var(--blu);">💧</div><div class="snm">HUMIDITY</div><div class="sval" style="color:var(--blu);" id="s-hum">18</div><div class="sunit">%</div><div class="sbar-w"><div class="sbar" style="background:var(--blu);width:18%;" id="sb-hum"></div></div></div>
+        <div class="scard"><div class="sico" style="color:var(--grn);">⚡</div><div class="snm">BATTERY VOLTAGE</div><div class="sval" style="color:var(--grn);" id="s-volt">11.6</div><div class="sunit">V</div><div class="sbar-w"><div class="sbar" style="background:var(--grn);width:72%;" id="sb-volt"></div></div></div>
+        <div class="scard"><div class="sico" style="color:var(--acc);">📡</div><div class="snm">SIGNAL RSSI</div><div class="sval" style="color:var(--acc);" id="s-rssi">62</div><div class="sunit">dBm</div><div class="sbar-w"><div class="sbar" style="background:var(--acc);width:65%;" id="sb-rssi"></div></div></div>
+        <div class="scard"><div class="sico" style="color:#ab47bc;">🔄</div><div class="snm">IMU — PITCH</div><div class="sval" style="color:#ab47bc;" id="s-pitch">3.2</div><div class="sunit">°</div><div class="sbar-w"><div class="sbar" style="background:#ab47bc;width:16%;" id="sb-pitch"></div></div></div>
+        <div class="scard"><div class="sico" style="color:#26c6da;">🔄</div><div class="snm">IMU — ROLL</div><div class="sval" style="color:#26c6da;" id="s-roll">1.8</div><div class="sunit">°</div><div class="sbar-w"><div class="sbar" style="background:#26c6da;width:9%;" id="sb-roll"></div></div></div>
+      </div>
+      <!-- Live graphs -->
+      <div class="card" style="padding:12px;">
+        <div class="ct"><i class="fas fa-chart-line"></i> LIVE TELEMETRY GRAPHS</div>
+        <div class="graph-wrap">
+          <div class="graph-row"><div class="graph-lbl"><span>TEMPERATURE (°C)</span><span id="gl-temp" style="color:#ff7043;">42.3</span></div><canvas id="gc-temp" class="gc"></canvas></div>
+          <div class="graph-row"><div class="graph-lbl"><span>VOLTAGE (V)</span><span id="gl-volt" style="color:var(--grn);">11.6</span></div><canvas id="gc-volt" class="gc"></canvas></div>
+          <div class="graph-row"><div class="graph-lbl"><span>RSSI (dBm)</span><span id="gl-rssi" style="color:var(--acc);">-62</span></div><canvas id="gc-rssi" class="gc"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <!-- 3D IMU Cube -->
+    <div class="card c5" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="ct"><i class="fas fa-cube"></i> 3D IMU VISUALIZER</div>
+      <div style="text-align:center;font-size:9px;color:var(--mute);margin-bottom:4px;">Live pitch & roll from MPU-6050</div>
+      <div class="imu-scene">
+        <div class="imu-cube" id="imu-cube">
+          <div class="imu-face front">FRONT</div>
+          <div class="imu-face back">BACK</div>
+          <div class="imu-face left">L</div>
+          <div class="imu-face right">R</div>
+          <div class="imu-face top">TOP</div>
+          <div class="imu-face bottom">BOT</div>
+        </div>
+      </div>
+      <hr class="dv">
+      <div style="display:flex;flex-direction:column;gap:9px;font-size:11px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">PITCH</span><span style="color:#ab47bc;" id="imu-pitch-v">3.2°</span></div>
+        <div><div class="sbar-w"><div class="sbar" style="background:#ab47bc;" id="imu-pb"></div></div></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">ROLL</span><span style="color:#26c6da;" id="imu-roll-v">1.8°</span></div>
+        <div><div class="sbar-w"><div class="sbar" style="background:#26c6da;" id="imu-rb"></div></div></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">YAW (compass)</span><span style="color:var(--acc);" id="imu-yaw-v">127°</span></div>
+        <div><div class="sbar-w"><div class="sbar" style="background:var(--acc);" id="imu-yb"></div></div></div>
+      </div>
+      <hr class="dv">
+      <div class="ct" style="margin-bottom:6px;"><i class="fas fa-exclamation-triangle"></i> ANOMALY THRESHOLDS</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:var(--mute);">TEMP ALERT &gt;</span><input class="finp" type="number" id="thr-temp" value="55" style="width:60px;padding:4px 7px;font-size:10px;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:var(--mute);">VOLT ALERT &lt;</span><input class="finp" type="number" id="thr-volt" value="10" style="width:60px;padding:4px 7px;font-size:10px;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:var(--mute);">RSSI ALERT &lt;</span><input class="finp" type="number" id="thr-rssi" value="75" style="width:60px;padding:4px 7px;font-size:10px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ POWER ══ -->
+<div id="page-power" class="page">
+  <div class="g12" style="flex:1;">
+    <div class="card c4" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div class="ct"><i class="fas fa-battery-three-quarters"></i> MAIN BATTERY</div>
+      <div class="ring-w">
+        <svg width="155" height="155" viewBox="0 0 155 155">
+          <circle cx="77.5" cy="77.5" r="62" fill="none" stroke="#1e2535" stroke-width="13"/>
+          <circle cx="77.5" cy="77.5" r="62" fill="none" stroke="var(--grn)" stroke-width="13"
+            stroke-dasharray="389.6" stroke-dashoffset="109" stroke-linecap="round"
+            transform="rotate(-90 77.5 77.5)" id="batt-ring"/>
+        </svg>
+        <div class="ring-val"><div style="font-family:'Orbitron',sans-serif;font-size:26px;color:var(--grn);" id="batt-ring-pct">72%</div><div style="font-size:9px;color:var(--mute);">CHARGE</div></div>
+      </div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:7px;width:100%;padding:0 18px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">VOLTAGE</span><span style="color:var(--grn);" id="pw-volt">11.6 V</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">CURRENT</span><span>2.4 A</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">POWER DRAW</span><span style="color:var(--acc);">27.8 W</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">EST. RUNTIME</span><span style="color:var(--blu);" id="pw-rt">38 min</span></div>
+      </div>
+    </div>
+    <div class="card c4">
+      <div class="ct"><i class="fas fa-microchip"></i> SUBSYSTEM DRAW</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:6px;">
+        <div><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:5px;"><span style="color:var(--mute);">ESP32</span><span style="color:var(--grn);">240MHz / 3.3V</span></div><div class="sbar-w"><div class="sbar" style="background:var(--grn);width:60%;"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:5px;"><span style="color:var(--mute);">MOTOR L</span><span style="color:var(--acc);">6.2V / 1.1A</span></div><div class="sbar-w"><div class="sbar" style="background:var(--acc);width:46%;"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:5px;"><span style="color:var(--mute);">MOTOR R</span><span style="color:var(--acc);">6.2V / 1.1A</span></div><div class="sbar-w"><div class="sbar" style="background:var(--acc);width:43%;"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:5px;"><span style="color:var(--mute);">ARM SERVO</span><span style="color:var(--blu);">5.0V / 0.8A</span></div><div class="sbar-w"><div class="sbar" style="background:var(--blu);width:26%;"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:5px;"><span style="color:var(--mute);">CAMERA</span><span style="color:var(--blu);">5.0V / 0.4A</span></div><div class="sbar-w"><div class="sbar" style="background:var(--blu);width:14%;"></div></div></div>
+      </div>
+    </div>
+    <div class="card c4" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="ct"><i class="fas fa-database"></i> SESSION RECORDER</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--panel2);border-radius:6px;border:1px solid var(--bdr);">
+        <div class="rec-dot off" id="rec-dot2"></div>
+        <div style="flex:1;">
+          <div style="font-size:11px;" id="rec-status-txt">RECORDER STOPPED</div>
+          <div style="font-size:9px;color:var(--mute);" id="rec-count">0 samples collected</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="mbtn mb-g" onclick="startRecorder()" style="flex:1;" id="btn-rec-start"><i class="fas fa-circle"></i> START</button>
+        <button class="mbtn mb-r" onclick="stopRecorder()" style="flex:1;" id="btn-rec-stop" disabled><i class="fas fa-stop"></i> STOP</button>
+      </div>
+      <button class="mbtn mb-b" onclick="exportCSV()" style="width:100%;" id="btn-export" disabled><i class="fas fa-download"></i> EXPORT CSV</button>
+      <hr class="dv">
+      <div class="ct" style="margin-bottom:6px;"><i class="fas fa-history"></i> POWER LOG</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:10px;overflow-y:auto;flex:1;" id="pwr-log">
+        <div class="logr lo"><span class="lts">00:00:00</span><span>System boot — 11.8V</span></div>
+        <div class="logr li"><span class="lts">00:02:00</span><span>Motor standby — low draw</span></div>
+        <div class="logr lw"><span class="lts">00:08:15</span><span>High draw — right motor</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TERMINAL ══ -->
+<div id="page-terminal" class="page">
+  <div class="card" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+    <div class="ct"><i class="fas fa-terminal"></i> WEBSOCKET TERMINAL — <span id="term-st" style="color:var(--red);">OFFLINE</span></div>
+    <div class="chips">
+      <div class="chip" onclick="sendCmd('PING')">PING</div>
+      <div class="chip" onclick="sendCmd('STATUS')">STATUS</div>
+      <div class="chip" onclick="sendCmd('MOVE:F:50')">MOVE FWD</div>
+      <div class="chip" onclick="sendCmd('MOVE:B:50')">MOVE BWD</div>
+      <div class="chip" onclick="sendCmd('STOP')">STOP</div>
+      <div class="chip" onclick="sendCmd('ARM:HOME')">ARM HOME</div>
+      <div class="chip" onclick="sendCmd('RTH')">RTH</div>
+      <div class="chip" onclick="sendCmd('ESTOP')">E-STOP</div>
+      <div class="chip" onclick="sendCmd('SENSOR:ALL')">SENSOR DUMP</div>
+      <div class="chip" onclick="clearTerm()">CLEAR</div>
+    </div>
+    <div class="term">
+      <div class="term-out" id="term-out"></div>
+      <div class="trow"><span class="tprompt">TITAN://&gt;</span><input class="tinput" id="term-inp" placeholder="enter command…" onkeydown="onTermKey(event)"><span class="cursor">_</span></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SETTINGS ══ -->
+<div id="page-settings" class="page">
+  <div class="scrlY">
+    <div class="stgrid">
+      <div class="card"><div class="ssect"><div class="sstt">NETWORK</div>
+        <div class="irow"><div class="flbl">CAMERA STREAM URL</div><input class="finp" type="text" id="cam-ip" placeholder="http://192.168.137.50:81/stream"></div>
+        <div class="irow"><div class="flbl">MOTOR ESP32 (WebSocket)</div><input class="finp" type="text" id="ws-ip" placeholder="ws://192.168.137.39:81"></div>
+        <div class="irow"><div class="flbl">ULTRASONIC NODE (ESP8266)</div><input class="finp" type="text" id="sonar-ip" placeholder="ws://192.168.137.60:81"></div>
+        <div class="irow"><div class="flbl">RECONNECT INTERVAL (ms)</div><input class="finp" type="number" id="rc-ms" value="3000"></div>
+        <button class="bsave" onclick="saveSettings()"><i class="fas fa-save"></i> SAVE & CONNECT</button>
+        <p style="font-size:9px;color:var(--mute);margin-top:8px;">Settings persisted in localStorage.</p>
+      </div></div>
+      <!-- CONNECTED DEVICES -->
+      <div class="card" style="grid-column:span 2;">
+        <div class="ssect"><div class="sstt">CONNECTED DEVICES</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;" id="dev-grid">
+            <div class="dev-card" id="dev-motor">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="led lr" id="dev-motor-led"></span>
+                <span style="font-size:10px;letter-spacing:1px;">MOTOR ESP32</span>
+                <span style="margin-left:auto;font-size:9px;color:var(--mute);" id="dev-motor-ip">192.168.137.39</span>
+              </div>
+              <div style="font-size:9px;color:var(--mute);margin-top:4px;" id="dev-motor-st">Checking...</div>
+              <div style="font-size:8px;color:var(--mute);margin-top:2px;">WebSocket :81 &nbsp;|&nbsp; HTTP :80</div>
+            </div>
+            <div class="dev-card" id="dev-cam">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="led lr" id="dev-cam-led"></span>
+                <span style="font-size:10px;letter-spacing:1px;">ESP32-CAM</span>
+                <span style="margin-left:auto;font-size:9px;color:var(--mute);" id="dev-cam-ip">192.168.137.50</span>
+              </div>
+              <div style="font-size:9px;color:var(--mute);margin-top:4px;" id="dev-cam-st">Checking...</div>
+              <div style="font-size:8px;color:var(--mute);margin-top:2px;">Stream :81/stream</div>
+            </div>
+            <div class="dev-card" id="dev-sonar">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="led lr" id="dev-sonar-led"></span>
+                <span style="font-size:10px;letter-spacing:1px;">ESP8266 SONAR</span>
+                <span style="margin-left:auto;font-size:9px;color:var(--mute);" id="dev-sonar-ip">192.168.137.60</span>
+              </div>
+              <div style="font-size:9px;color:var(--mute);margin-top:4px;" id="dev-sonar-st">Checking...</div>
+              <div style="font-size:8px;color:var(--mute);margin-top:2px;">WS :81 &nbsp;|&nbsp; 4× HC-SR04</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="bsave" style="flex:1;" onclick="pingDevices()"><i class="fas fa-sync-alt"></i> REFRESH</button>
+            <span style="font-size:9px;color:var(--mute);" id="dev-last-ping">Not scanned yet</span>
+          </div>
+        </div>
+      </div>
+      <div class="card"><div class="ssect"><div class="sstt">ROVER PROFILE</div>
+        <div class="irow"><div class="flbl">ROVER NAME</div><input class="finp" type="text" id="r-name" value="TITAN_ROVER_V2"></div>
+        <div class="irow"><div class="flbl">HOME LATITUDE</div><input class="finp" type="text" id="h-lat" value="12.9716"></div>
+        <div class="irow"><div class="flbl">HOME LONGITUDE</div><input class="finp" type="text" id="h-lon" value="77.5946"></div>
+        <div class="irow"><div class="flbl">MAX SPEED</div><select class="fsel" id="max-spd"><option>SLOW (25%)</option><option selected>MEDIUM (50%)</option><option>FAST (75%)</option><option>FULL (100%)</option></select></div>
+        <button class="bsave"><i class="fas fa-check"></i> SAVE PROFILE</button>
+      </div></div>
+      <div class="card"><div class="ssect"><div class="sstt">SAFETY</div>
+        <div style="display:flex;flex-direction:column;gap:12px;font-size:11px;">
+          <label class="tgl" for="s-aes"><input type="checkbox" id="s-aes" checked><div class="sw"></div><span class="tlbl">AUTO E-STOP ON DISCONNECT</span></label>
+          <label class="tgl" for="s-col"><input type="checkbox" id="s-col" checked><div class="sw"></div><span class="tlbl">COLLISION AVOIDANCE</span></label>
+          <label class="tgl" for="s-rth"><input type="checkbox" id="s-rth" checked><div class="sw"></div><span class="tlbl">AUTO RTH ON LOW BATTERY</span></label>
+          <label class="tgl" for="s-arm"><input type="checkbox" id="s-arm"><div class="sw"></div><span class="tlbl">ARM SOFT LIMITS</span></label>
+        </div>
+        <div class="irow" style="margin-top:12px;"><div class="flbl">LOW BATTERY THRESHOLD (%)</div><input class="finp" type="number" id="b-thr" value="20"></div>
+        <button class="bsave"><i class="fas fa-shield-alt"></i> APPLY SAFETY</button>
+      </div></div>
+      <div class="card"><div class="ssect"><div class="sstt">DIAGNOSTICS</div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:10px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">FIRMWARE</span><span>v2.4.1-beta</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">MCU</span><span>ESP32-S3 240MHz</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">CAMERA</span><span>OV2640 800×600</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">IMU</span><span>MPU-6050</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--mute);">MOTOR DRIVER</span><span>L298N</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <button class="mbtn mb-b" onclick='toast("info","Diagnostics ping sent","fa-stethoscope")'>RUN DIAGNOSTICS</button>
+          <button class="mbtn mb-r" onclick="factoryReset()">FACTORY RESET</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div><!-- end layout -->
+
+<script>
+// ══════════════════════════════════════════════
+//  PAGE ROUTING
+// ══════════════════════════════════════════════
+function sp(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  (el || document.getElementById('ni-' + id)).classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+//  TOAST SYSTEM
+// ══════════════════════════════════════════════
+const toastWrap = document.getElementById('toast-wrap');
+const toastThrottle = {};
+function toast(type, msg, icon = 'fa-exclamation-circle') {
+  const key = type + msg;
+  if (toastThrottle[key] && Date.now() - toastThrottle[key] < 8000) return;
+  toastThrottle[key] = Date.now();
+  const cls = {warn:'toast-warn', err:'toast-err', ok:'toast-ok', info:'toast-info'}[type] || 'toast-info';
+  const d = document.createElement('div');
+  d.className = 'toast ' + cls;
+  d.innerHTML = `<i class="fas ${icon}"></i><span>${msg}</span><span class="toast-close" onclick="this.parentElement.remove()">✕</span>`;
+  toastWrap.appendChild(d);
+  setTimeout(() => d.remove(), 7000);
+  logEntry(type === 'err' ? 'e' : type === 'warn' ? 'w' : type === 'ok' ? 'o' : 'i', msg);
+}
+
+// ══════════════════════════════════════════════
+//  EVENT LOG
+// ══════════════════════════════════════════════
+const logEl = document.getElementById('event-log');
+function logEntry(t, msg) {
+  const ts = new Date().toLocaleTimeString('en-GB');
+  const cls = {i:'li', w:'lw', e:'le', o:'lo'}[t] || 'li';
+  const d = document.createElement('div');
+  d.className = 'logr ' + cls;
+  d.innerHTML = `<span class="lts">${ts}</span><span>${msg}</span>`;
+  logEl.prepend(d);
+  if (logEl.children.length > 40) logEl.lastElementChild.remove();
+  tprint('sys', `[${ts}] ${msg}`);
+}
+
+// ══════════════════════════════════════════════
+//  UPTIME
+// ══════════════════════════════════════════════
+const boot = Date.now();
+setInterval(() => {
+  let s = Math.floor((Date.now() - boot) / 1000);
+  const h = String(Math.floor(s / 3600)).padStart(2, '0');
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  document.getElementById('d-uptime').textContent = `${h}:${m}:${ss}`;
+  document.getElementById('hud-time').textContent = new Date().toLocaleTimeString('en-GB');
+}, 1000);
+
+// ══════════════════════════════════════════════
+//  SENSOR SIMULATION + ANOMALY CHECKS
+// ══════════════════════════════════════════════
+let sVolt = 11.6, sTemp = 42.3, sRssi = 62, sPitch = 3.2, sRoll = 1.8, sYaw = 127;
+
+// Graph data
+const gData = { temp: [], volt: [], rssi: [] };
+const G_MAX = 60;
+
+function pushGraph(key, val) {
+  gData[key].push(val);
+  if (gData[key].length > G_MAX) gData[key].shift();
+}
+
+function drawGraph(canvasId, data, color, min, max) {
+  const c = document.getElementById(canvasId);
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  c.width = c.offsetWidth * devicePixelRatio;
+  c.height = c.offsetHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = c.offsetWidth, H = c.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+  if (data.length < 2) return;
+  const sx = W / (G_MAX - 1);
+  const toY = v => H - ((v - min) / (max - min)) * H;
+  // Fill
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  data.forEach((v, i) => ctx.lineTo(i * sx, toY(v)));
+  ctx.lineTo((data.length - 1) * sx, H);
+  ctx.closePath();
+  ctx.fillStyle = color.replace(')', ', 0.12)').replace('rgb', 'rgba').replace('#', 'rgba(') + (color.startsWith('#') ? '' : '');
+  // Use gradient fill
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, color + '33');
+  grad.addColorStop(1, color + '00');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  // Line
+  ctx.beginPath();
+  data.forEach((v, i) => i === 0 ? ctx.moveTo(0, toY(v)) : ctx.lineTo(i * sx, toY(v)));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+setInterval(() => {
+  // Simulate sensor drift ONLY if offline
+  const isLive = (typeof sonarWs !== 'undefined' && sonarWs && sonarWs.readyState === 1);
+  if (!isLive) {
+    sTemp  = +(sTemp  + (Math.random() - 0.48) * 0.5).toFixed(1);
+    sPitch = +(sPitch + (Math.random() - 0.5)  * 0.4).toFixed(1);
+    sRoll  = +(sRoll  + (Math.random() - 0.5)  * 0.3).toFixed(1);
+  }
+  sVolt  = +(sVolt  - (Math.random() * 0.01)).toFixed(2);
+  sRssi  = +(sRssi  + (Math.random() - 0.5)  * 1.5).toFixed(0);
+  sYaw   = (sYaw   + (Math.random() > 0.9 ? 1 : 0)) % 360;
+
+  // Update sensor cards
+  const sv = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = Math.abs(val); };
+  const sb = (id, pct) => { const e = document.getElementById(id); if (e) e.style.width = Math.max(0, Math.min(100, pct)) + '%'; };
+  sv('s-temp', sTemp); sb('sb-temp', sTemp);
+  sv('s-hum',  18);    sb('sb-hum',  18);
+  sv('s-volt', sVolt); sb('sb-volt', (sVolt / 12.6) * 100);
+  sv('s-rssi', sRssi); sb('sb-rssi', 100 - sRssi);
+  sv('s-pitch', sPitch); sb('sb-pitch', Math.abs(sPitch / 45) * 100);
+  sv('s-roll',  sRoll);  sb('sb-roll',  Math.abs(sRoll  / 45) * 100);
+  sv('d-temp', sTemp);
+
+  // IMU cube
+  const cube = document.getElementById('imu-cube');
+  if (cube) cube.style.transform = `rotateX(${-sPitch * 2}deg) rotateY(${sYaw * 0.5}deg) rotateZ(${sRoll * 2}deg)`;
+  const upd = (id, val, unit) => { const e = document.getElementById(id); if(e) e.textContent = val + unit; };
+  upd('imu-pitch-v', sPitch, '°');
+  upd('imu-roll-v',  sRoll,  '°');
+  upd('imu-yaw-v',   Math.round(sYaw), '°');
+  sb('imu-pb', Math.abs(sPitch / 45) * 100);
+  sb('imu-rb', Math.abs(sRoll  / 45) * 100);
+  sb('imu-yb', (sYaw / 360) * 100);
+
+  // Graphs
+  pushGraph('temp', sTemp);
+  pushGraph('volt', sVolt);
+  pushGraph('rssi', sRssi);
+  drawGraph('gc-temp', gData.temp, '#ff7043', 30, 80);
+  drawGraph('gc-volt', gData.volt, '#00e676', 9, 13);
+  drawGraph('gc-rssi', gData.rssi, '#f0a500', 40, 100);
+  document.getElementById('gl-temp').textContent = sTemp + '°C';
+  document.getElementById('gl-volt').textContent = sVolt + 'V';
+  document.getElementById('gl-rssi').textContent = '-' + sRssi + 'dBm';
+
+  // Battery simulation
+  let pct = parseInt(document.getElementById('batt-pct').textContent);
+  if (Math.random() > 0.97) pct = Math.max(5, pct - 1);
+  updateBattery(pct);
+
+  // Anomaly checks
+  const tThr = parseFloat(document.getElementById('thr-temp')?.value || 55);
+  const vThr = parseFloat(document.getElementById('thr-volt')?.value || 10);
+  const rThr = parseFloat(document.getElementById('thr-rssi')?.value || 75);
+  if (sTemp > tThr)  toast('err',  `⚠ High temp: ${sTemp}°C`, 'fa-thermometer-full');
+  if (sVolt < vThr)  toast('warn', `⚠ Low voltage: ${sVolt}V`, 'fa-battery-quarter');
+  if (sRssi > rThr)  toast('warn', `⚠ Weak signal: -${sRssi}dBm`, 'fa-wifi');
+
+  // Session recorder
+  if (recActive) {
+    recData.push({ ts: new Date().toISOString(), temp: sTemp, volt: sVolt, rssi: sRssi, pitch: sPitch, roll: sRoll, yaw: Math.round(sYaw) });
+    const cnt = document.getElementById('rec-count');
+    if (cnt) cnt.textContent = recData.length + ' samples collected';
+  }
+}, 2000);
+
+function updateBattery(pct) {
+  document.getElementById('batt-pct').textContent = pct + '%';
+  ['batt-f'].forEach(id => { const e = document.getElementById(id); if (e) e.style.width = pct + '%'; });
+  const ring = document.getElementById('batt-ring');
+  if (ring) {
+    ring.setAttribute('stroke-dashoffset', String(389.6 * (1 - pct / 100)));
+    const c = pct > 40 ? 'var(--grn)' : pct > 20 ? 'var(--acc)' : 'var(--red)';
+    ring.setAttribute('stroke', c);
+  }
+  const rp = document.getElementById('batt-ring-pct');
+  if (rp) rp.textContent = pct + '%';
+  const pw = document.getElementById('pw-volt');
+  if (pw) pw.textContent = (9.6 + pct * 0.022).toFixed(1) + ' V';
+  const rt = document.getElementById('pw-rt');
+  if (rt) rt.textContent = Math.round(pct * 0.55) + ' min';
+  if (pct < 20) toast('warn', `Low battery: ${pct}% — RTH initiated`, 'fa-battery-quarter');
+}
+
+// ══════════════════════════════════════════════
+//  DRIVE CONTROL
+// ══════════════════════════════════════════════
+let driveLoop = null, curKey = null, heading = 0;
+
+function sd(k) {
+  stopDrive();
+  curKey = k;
+  ['w','a','s','d'].forEach(x => document.getElementById('btn-'+x)?.classList.remove('pressed'));
+  document.getElementById('btn-'+k.toLowerCase())?.classList.add('pressed');
+  const thr = parseInt(document.getElementById('throttle').value);
+  const spd = Math.round(thr * 0.6);
+  document.getElementById('d-speed').textContent = spd;
+  document.getElementById('dr-spd').textContent = `SPD: ${spd} cm/s`;
+  document.getElementById('dr-key').textContent = `KEY: ${k}`;
+
+  let cmdCode = '';
+  if (k==='W') cmdCode = 'F';
+  if (k==='S') cmdCode = 'B';
+  if (k==='A') cmdCode = 'L';
+  if (k==='D') cmdCode = 'R';
+  if (window.roverWs && window.roverWs.readyState === WebSocket.OPEN) {
+    window.roverWs.send(cmdCode);
+  }
+  tprint('tx', `CMD:DRIVE:${cmdCode}:${spd}`);
+
+  driveLoop = setInterval(() => {
+    if (k === 'A') heading = (heading - 3 + 360) % 360;
+    if (k === 'D') heading = (heading + 3) % 360;
+    document.getElementById('dr-hdg').textContent = `HDG: ${String(Math.round(heading)).padStart(3,'0')}°`;
+    const dist = parseFloat(document.getElementById('d-dist').textContent);
+    document.getElementById('d-dist').textContent = (dist + 0.05).toFixed(1);
+    // Move rover on map + draw trail
+    const rover = document.getElementById('map-rover');
+    if (rover) {
+      let lft = parseFloat(rover.style.left), top = parseFloat(rover.style.top);
+      if (k==='W') top  -= 0.3;
+      if (k==='S') top  += 0.3;
+      if (k==='A') lft  -= 0.3;
+      if (k==='D') lft  += 0.3;
+      lft = Math.max(2, Math.min(98, lft));
+      top = Math.max(2, Math.min(98, top));
+      rover.style.left = lft + '%';
+      rover.style.top  = top + '%';
+      addTrailPoint(lft, top);
+    }
+  }, 200);
+}
+
+function stopDrive() {
+  if (driveLoop) { clearInterval(driveLoop); driveLoop = null; }
+  curKey = null;
+  ['w','a','s','d'].forEach(x => document.getElementById('btn-'+x)?.classList.remove('pressed'));
+  document.getElementById('d-speed').textContent = 0;
+  document.getElementById('dr-spd').textContent = 'SPD: 0 cm/s';
+  document.getElementById('dr-key').textContent = 'KEY: –';
+  if (window.roverWs && window.roverWs.readyState === WebSocket.OPEN) {
+    window.roverWs.send('S');
+  }
+  tprint('tx','CMD:STOP');
+}
+
+function toggleAuto(on) {
+  document.getElementById('dr-mode').textContent = on ? 'MODE: AUTOPILOT 🤖' : 'MODE: MANUAL';
+  toast(on ? 'warn' : 'info', on ? 'Autopilot engaged' : 'Manual control active', 'fa-robot');
+}
+
+// Keyboard
+window.addEventListener('keydown', e => {
+  const m = {ArrowUp:'W',ArrowDown:'S',ArrowLeft:'A',ArrowRight:'D',w:'W',a:'A',s:'S',d:'D'};
+  if (m[e.key] && !driveLoop) sd(m[e.key]);
+});
+window.addEventListener('keyup', e => {
+  const m = {ArrowUp:'W',ArrowDown:'S',ArrowLeft:'A',ArrowRight:'D',w:'W',a:'A',s:'S',d:'D'};
+  if (m[e.key]) stopDrive();
+});
+
+// ══════════════════════════════════════════════
+//  GAMEPAD API
+// ══════════════════════════════════════════════
+let gpIndex = null, gpLoop = null;
+const deadzone = 0.2;
+
+window.addEventListener('gamepadconnected', e => {
+  gpIndex = e.gamepad.index;
+  toast('ok', `Gamepad connected: ${e.gamepad.id.substring(0,30)}`, 'fa-gamepad');
+  document.getElementById('gp-icon').style.color = 'var(--grn)';
+  document.getElementById('gp-lbl').textContent = e.gamepad.id.substring(0, 18) + '…';
+  document.getElementById('gp-status-box').style.borderColor = 'rgba(0,230,118,.3)';
+  document.getElementById('gp-name-disp').style.color = 'var(--grn)';
+  document.getElementById('gp-name-disp').textContent = e.gamepad.id.substring(0, 22);
+  startGpLoop();
+});
+
+window.addEventListener('gamepaddisconnected', e => {
+  gpIndex = null;
+  if (gpLoop) { clearInterval(gpLoop); gpLoop = null; }
+  stopDrive();
+  document.getElementById('gp-icon').style.color = 'var(--mute)';
+  document.getElementById('gp-lbl').textContent = 'NO GAMEPAD';
+  document.getElementById('gp-name-disp').style.color = 'var(--mute)';
+  document.getElementById('gp-name-disp').textContent = 'No gamepad detected';
+  toast('warn', 'Gamepad disconnected', 'fa-gamepad');
+});
+
+// ── CONTROLLER MODE ──
+let controllerMode = 'drive'; // 'drive' | 'arm'
+
+function setControllerMode(isArm) {
+  controllerMode = isArm ? 'arm' : 'drive';
+  const driveEl = document.getElementById('ctrl-mode-lbl-drive');
+  const armEl   = document.getElementById('ctrl-mode-lbl-arm');
+  const hint    = document.getElementById('ctrl-mode-hint');
+  const hudMode = document.getElementById('dr-mode');
+
+  if (isArm) {
+    driveEl.style.color = 'var(--mute)';
+    armEl.style.color   = 'var(--acc)';
+    if (hint) hint.textContent = 'L→Base/Shoulder  R→Arm/Wrist  LT/RT→Grip';
+    if (hudMode) hudMode.textContent = 'MODE: ARM CONTROL 🦾';
+    stopDrive(); // stop motors when switching to arm
+    toast('ok', 'Controller → ARM MODE  🦾', 'fa-robot');
+  } else {
+    driveEl.style.color = 'var(--acc)';
+    armEl.style.color   = 'var(--mute)';
+    if (hint) hint.textContent = 'L-Stick: Fwd/Back/Turn';
+    if (hudMode) hudMode.textContent = 'MODE: MANUAL';
+    toast('ok', 'Controller → DRIVE MODE  🚗', 'fa-car-side');
+  }
+}
+
+function startGpLoop() {
+  if (gpLoop) clearInterval(gpLoop);
+
+  // Arm state for GP arm mode (incremental)
+  let gpArmAngles = { BASE:90, SHOULDER:90, ARM:90, J1:90, J2:90, GRIP:0 };
+  let gpArmLastSent = {};
+  const GP_ARM_SPD = 2; // degrees per tick
+
+  gpLoop = setInterval(() => {
+    if (gpIndex === null) return;
+    const gp = navigator.getGamepads()[gpIndex];
+    if (!gp) return;
+
+    // ── DRIVE MODE ──────────────────────────────
+    if (controllerMode === 'drive') {
+      const ax = gp.axes[0], ay = gp.axes[1];
+      let k = null;
+      if      (ay < -deadzone) k = 'W';
+      else if (ay >  deadzone) k = 'S';
+      else if (ax < -deadzone) k = 'A';
+      else if (ax >  deadzone) k = 'D';
+      if (k && k !== curKey) { stopDrive(); sd(k); }
+      else if (!k && driveLoop) stopDrive();
+      if (gp.buttons[1]?.pressed) emergencyStop();
+      if (gp.buttons[3]?.pressed) returnHome();
+      return;
+    }
+
+    // ── ARM MODE ─────────────────────────────────
+    // Left stick X → BASE, Left stick Y → SHOULDER
+    // Right stick X → ARM,  Right stick Y → J1 (wrist)
+    // LB (btn4) / RB (btn5) → J2
+    // LT (axes[2] or btn6) / RT (axes[5] or btn7) → Gripper
+    // Start (btn9) → ARM HOME
+    const lx = gp.axes[0], ly = gp.axes[1];
+    const rx = gp.axes[2] ?? gp.axes[3] ?? 0;
+    const ry = gp.axes[3] ?? gp.axes[4] ?? 0;
+
+    function nudge(key, delta, min, max) {
+      const nv = Math.round(Math.min(max, Math.max(min, gpArmAngles[key] + delta)));
+      if (nv !== gpArmAngles[key]) {
+        gpArmAngles[key] = nv;
+        // sync slider + label + WS
+        const slider = document.querySelector(`#arm-ctrl input[oninput*="'${key}'"]`);
+        if (slider) slider.value = nv;
+        const lbl = document.getElementById(`jv-${key}`);
+        if (lbl) lbl.textContent = nv + '°';
+        sendArmCmd(key, nv);
+        updateJoint(key, nv, false);
+      }
+    }
+
+    if (Math.abs(lx) > deadzone) nudge('BASE',     lx * GP_ARM_SPD, 0, 180);
+    if (Math.abs(ly) > deadzone) nudge('SHOULDER',  ly * GP_ARM_SPD, 0, 180);
+    if (Math.abs(rx) > deadzone) nudge('ARM',        rx * GP_ARM_SPD, 0, 180);
+    if (Math.abs(ry) > deadzone) nudge('J1',         ry * GP_ARM_SPD, 0, 180);
+
+    // LB = J2 up, RB = J2 down
+    if (gp.buttons[4]?.pressed) nudge('J2', -GP_ARM_SPD, 0, 180);
+    if (gp.buttons[5]?.pressed) nudge('J2',  GP_ARM_SPD, 0, 180);
+
+    // LT = open gripper, RT = close gripper
+    const lt = gp.buttons[6]?.value ?? 0;
+    const rt = gp.buttons[7]?.value ?? 0;
+    if (lt > 0.1) nudge('GRIP', -lt * GP_ARM_SPD * 1.5, 0, 90);
+    if (rt > 0.1) nudge('GRIP',  rt * GP_ARM_SPD * 1.5, 0, 90);
+
+    // Start button → ARM HOME
+    if (gp.buttons[9]?.pressed) {
+      gpArmAngles = { BASE:90, SHOULDER:90, ARM:90, J1:90, J2:90, GRIP:0 };
+      sendArmCmd('HOME', 'HOME');
+      ['BASE','SHOULDER','ARM','J1','J2','GRIP'].forEach(k => {
+        const s = document.querySelector(`#arm-ctrl input[oninput*="'${k}'"]`);
+        if (s) s.value = gpArmAngles[k];
+        const l = document.getElementById(`jv-${k}`);
+        if (l) l.textContent = gpArmAngles[k] + '°';
+        updateJoint(k, gpArmAngles[k], false);
+      });
+      toast('ok', 'Arm → HOME', 'fa-robot');
+    }
+  }, 80);
+}
+
+// ══════════════════════════════════════════════
+//  MISSION PLANNER
+// ══════════════════════════════════════════════
+let waypoints = [], trailPoints = [], missionRunning = false;
+
+function mapClick(e) {
+  const map = document.getElementById('mmap');
+  const r = map.getBoundingClientRect();
+  const x = +((e.clientX - r.left) / r.width * 100).toFixed(1);
+  const y = +((e.clientY - r.top)  / r.height * 100).toFixed(1);
+  const lat = (12.9716 + (50 - y) / 100).toFixed(4);
+  const lon = (77.5946 + (x - 50) / 100).toFixed(4);
+  if (!e.target.classList.contains('mmap-wp') && !e.target.classList.contains('mmap-rover')) {
+    waypoints.push({ x, y, lat, lon });
+    renderMission();
+    logEntry('i', `WP${waypoints.length}: ${lat}°N ${lon}°E`);
+  }
+}
+
+function addTrailPoint(x, y) {
+  trailPoints.push({ x, y });
+  if (trailPoints.length > 200) trailPoints.shift();
+  renderTrail();
+}
+
+function renderTrail() {
+  const svg = document.getElementById('map-svg');
+  // Remove old trail
+  const old = svg.querySelector('.trail-path');
+  if (old) old.remove();
+  if (trailPoints.length < 2) return;
+  const pts = trailPoints.map(p => `${p.x},${p.y}`).join(' ');
+  const path = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  path.setAttribute('points', pts);
+  path.setAttribute('class','trail-path');
+  path.setAttribute('stroke','rgba(240,165,0,0.4)');
+  path.setAttribute('stroke-width','1.5');
+  path.setAttribute('fill','none');
+  path.setAttribute('stroke-dasharray','4 3');
+  svg.prepend(path);
+}
+
+function renderMission() {
+  document.querySelectorAll('.mmap-wp').forEach(e => e.remove());
+  const svg = document.getElementById('map-svg');
+  // Remove old wp path
+  const oldWP = svg.querySelector('.wp-path');
+  if (oldWP) oldWP.remove();
+  if (waypoints.length > 1) {
+    const pts = [[50, 80], ...waypoints.map(w => [+w.x, +w.y])].map(p => p.join('%,')).join('% ') + '%';
+    const path = document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    path.setAttribute('points', waypoints.map(w => `${w.x},${w.y}`).join(' '));
+    path.setAttribute('class','wp-path');
+    path.setAttribute('stroke','rgba(0,188,212,0.45)');
+    path.setAttribute('stroke-width','1.5');
+    path.setAttribute('stroke-dasharray','6 4');
+    path.setAttribute('fill','none');
+    svg.appendChild(path);
+  }
+  const map = document.getElementById('mmap');
+  waypoints.forEach((w, i) => {
+    const d = document.createElement('div');
+    d.className = 'mmap-wp';
+    d.style.left = w.x + '%'; d.style.top = w.y + '%';
+    d.title = `WP${i+1}`;
+    map.appendChild(d);
+  });
+  document.getElementById('wp-cnt').textContent = waypoints.length;
+  renderWPList();
+  updateEst();
+}
+
+function renderWPList() {
+  const l = document.getElementById('wp-list');
+  l.innerHTML = '';
+  waypoints.forEach((w, i) => {
+    const d = document.createElement('div');
+    d.className = 'wp-item';
+    d.innerHTML = `<div class="wp-num">${i+1}</div><div style="flex:1;color:var(--mute);font-size:10px;">${w.lat}°N, ${w.lon}°E</div><button class="wp-del" onclick="delWP(${i})">✕</button>`;
+    l.appendChild(d);
+  });
+}
+
+function updateEst() {
+  const d = (waypoints.length * 8.4).toFixed(1);
+  document.getElementById('est-d').textContent = d + ' m';
+  document.getElementById('eta-v').textContent = waypoints.length ? Math.round(d / 0.4) + 's' : '–';
+}
+
+function delWP(i) { waypoints.splice(i, 1); renderMission(); }
+
+function clearAll() {
+  waypoints = [];
+  trailPoints = [];
+  document.getElementById('map-svg').innerHTML = '';
+  document.querySelectorAll('.mmap-wp').forEach(e => e.remove());
+  document.getElementById('wp-cnt').textContent = 0;
+  document.getElementById('wp-list').innerHTML = '';
+  document.getElementById('est-d').textContent = '0 m';
+  document.getElementById('eta-v').textContent = '–';
+  logEntry('i', 'Map cleared');
+}
+
+function startMission() {
+  if (!waypoints.length) { toast('warn','No waypoints set','fa-exclamation'); return; }
+  missionRunning = true;
+  document.getElementById('map-status').textContent = 'EXECUTING';
+  document.getElementById('mis-st').className = 'badge bo'; document.getElementById('mis-st').textContent = 'RUNNING';
+  toast('ok', `Mission started — ${waypoints.length} waypoints`, 'fa-play');
+  tprint('tx','CMD:MISSION:START');
+}
+
+function abortMission() {
+  missionRunning = false;
+  document.getElementById('map-status').textContent = 'ABORTED';
+  document.getElementById('mis-st').className = 'badge be'; document.getElementById('mis-st').textContent = 'ABORTED';
+  toast('err','Mission aborted','fa-stop');
+  tprint('tx','CMD:MISSION:ABORT');
+}
+
+// ══════════════════════════════════════════════
+//  RETURN HOME + ESTOP
+// ══════════════════════════════════════════════
+function returnHome() {
+  stopDrive(); missionRunning = false;
+  toast('ok','RTH initiated — returning to home','fa-home');
+  tprint('tx','CMD:RTH');
+  const rover = document.getElementById('map-rover');
+  if (rover) {
+    rover.style.transition = 'left 3s ease-in-out, top 3s ease-in-out';
+    rover.style.left = '50%'; rover.style.top = '80%';
+    setTimeout(() => toast('ok','Rover reached HOME','fa-home'), 3100);
+  }
+}
+
+function emergencyStop() {
+  stopDrive(); missionRunning = false;
+  toast('err','EMERGENCY STOP ACTIVATED — all motors halted','fa-power-off');
+  tprint('tx','CMD:ESTOP');
+  const btn = document.getElementById('estop-btn');
+  btn.style.background = '#7a0000';
+  setTimeout(() => btn.style.background = 'var(--red)', 1500);
+}
+
+// ══════════════════════════════════════════════
+//  SNAPSHOT GALLERY
+// ══════════════════════════════════════════════
+let snapshots = [];
+function takeSnapshot() {
+  const img = document.getElementById('main-stream');
+  const canvas = document.getElementById('snap-canvas');
+  const ts = new Date().toLocaleTimeString('en-GB');
+  let dataUrl;
+  if (img.style.display !== 'none' && img.src && img.complete && img.naturalHeight !== 0) {
+    canvas.width = img.naturalWidth || 320;
+    canvas.height = img.naturalHeight || 180;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+    try {
+      dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    } catch(e) {
+      // Canvas is tainted (CORS) — generate labelled placeholder instead
+      dataUrl = null;
+    }
+  }
+  if (!dataUrl) {
+    // Generate placeholder with timestamp
+    canvas.width = 320; canvas.height = 180;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0d1017';
+    ctx.fillRect(0, 0, 320, 180);
+    ctx.strokeStyle = '#f0a500'; ctx.lineWidth = 1;
+    ctx.strokeRect(1, 1, 318, 178);
+    ctx.fillStyle = '#f0a500'; ctx.font = '12px Orbitron,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('TITAN-V2 SNAPSHOT', 160, 80);
+    ctx.fillStyle = '#4a5568'; ctx.font = '10px monospace';
+    ctx.fillText(ts, 160, 100);
+    ctx.fillText('NO LIVE FEED', 160, 115);
+    dataUrl = canvas.toDataURL('image/jpeg');
+  }
+  snapshots.unshift({ dataUrl, ts });
+  renderGallery();
+  toast('ok', `Snapshot saved — ${ts}`, 'fa-camera');
+  document.getElementById('snap-count').textContent = snapshots.length + ' SNAPSHOTS';
+}
+
+function renderGallery() {
+  const grid = document.getElementById('snap-grid');
+  if (!snapshots.length) { grid.innerHTML = '<div class="snap-empty">No snapshots yet — press SNAP above</div>'; return; }
+  grid.innerHTML = '';
+  snapshots.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'snap-item';
+    d.innerHTML = `<img src="${s.dataUrl}" alt="snap-${i}"><span class="snap-ts">${s.ts}</span>`;
+    d.onclick = () => { const a = document.createElement('a'); a.href = s.dataUrl; a.download = `titan_snap_${s.ts.replace(/:/g,'-')}.jpg`; a.click(); };
+    grid.appendChild(d);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  SESSION RECORDER
+// ══════════════════════════════════════════════
+let recActive = false, recData = [];
+
+function startRecorder() {
+  recActive = true; recData = [];
+  document.getElementById('rec-dot').className = 'rec-dot on';
+  document.getElementById('rec-dot2').className = 'rec-dot on';
+  document.getElementById('rec-lbl').textContent = 'RECORDING';
+  document.getElementById('rec-status-txt').textContent = 'RECORDING…';
+  document.getElementById('btn-rec-start').disabled = true;
+  document.getElementById('btn-rec-stop').disabled = false;
+  toast('ok','Session recorder started','fa-circle');
+}
+
+function stopRecorder() {
+  recActive = false;
+  document.getElementById('rec-dot').className = 'rec-dot off';
+  document.getElementById('rec-dot2').className = 'rec-dot off';
+  document.getElementById('rec-lbl').textContent = 'REC OFF';
+  document.getElementById('rec-status-txt').textContent = 'RECORDER STOPPED';
+  document.getElementById('btn-rec-start').disabled = false;
+  document.getElementById('btn-rec-stop').disabled = true;
+  document.getElementById('btn-export').disabled = recData.length === 0;
+  toast('info', `Recorder stopped — ${recData.length} samples`, 'fa-stop');
+}
+
+function exportCSV() {
+  if (!recData.length) return;
+  const header = 'timestamp,temp_c,voltage_v,rssi_dbm,pitch_deg,roll_deg,yaw_deg\n';
+  const rows = recData.map(r => `${r.ts},${r.temp},${r.volt},${r.rssi},${r.pitch},${r.roll},${r.yaw}`).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `titan_v2_session_${Date.now()}.csv`; a.click();
+  toast('ok','CSV exported successfully','fa-download');
+}
+
+
+
+// ══════════════════════════════════════════════
+//  ROBOTIC ARM  — 6-DOF (Base/Shoulder/Arm/J1/J2/Gripper)
+// ══════════════════════════════════════════════
+const joints = [
+  { id:'BASE',     name:'Base Rotation',  svgId:'j1g',  min:0,   max:180, val:90, wsKey:'BASE' },
+  { id:'SHOULDER', name:'Shoulder',        svgId:'j2g',  min:0,   max:180, val:90, wsKey:'SHOULDER' },
+  { id:'ARM',      name:'Upper Arm',       svgId:'j3g',  min:0,   max:180, val:90, wsKey:'ARM' },
+  { id:'J1',       name:'Wrist Joint 1',   svgId:'j4g',  min:0,   max:180, val:90, wsKey:'J1' },
+  { id:'J2',       name:'Wrist Joint 2',   svgId:'j5g',  min:0,   max:180, val:90, wsKey:'J2' },
+  { id:'GRIP',     name:'Gripper',         svgId:'j6g',  min:0,   max:90,  val:0,  wsKey:'GRIP' },
+];
+
+// Visual transform origins for SVG chain
+const jTranslates = {
+  BASE:'', SHOULDER:'rotate(-90)', ARM:'translate(0,-100)', J1:'translate(0,-80)', J2:'translate(0,-60)', GRIP:'translate(0,-40)'
+};
+
+function sendArmCmd(joint, value) {
+  const cmd = `ARM:${joint}:${value}`;
+  if (window.roverWs && window.roverWs.readyState === WebSocket.OPEN) {
+    window.roverWs.send(cmd);
+  }
+  tprint('tx', cmd);
+}
+
+function initArm() {
+  const c = document.getElementById('arm-ctrl');
+  joints.forEach(j => {
+    const d = document.createElement('div'); d.className = 'jcard';
+    const label = j.id === 'GRIP' ? `${j.name}  <span style="font-size:9px;color:var(--mute);">(0=open 90=closed)</span>` : j.name;
+    d.innerHTML = `
+      <div class="jh">
+        <span>${label}</span>
+        <span style="color:var(--acc);font-family:'Orbitron',sans-serif;" id="jv-${j.id}">${j.val}°</span>
+      </div>
+      <input type="range" min="${j.min}" max="${j.max}" value="${j.val}"
+        oninput="updateJoint('${j.id}',this.value)">`;
+    c.appendChild(d);
+    updateJoint(j.id, j.val, false);
+  });
+
+  // Speed slider label
+  const sp = document.getElementById('joy-speed');
+  const sv = document.getElementById('joy-spd-val');
+  if (sp && sv) sp.oninput = () => sv.textContent = sp.value;
+
+  initJoysticks();
+}
+
+// ══════════════════════════════════════════════
+//  VIRTUAL JOYSTICK ENGINE
+// ══════════════════════════════════════════════
+function createJoystick(zoneId, stickId, onMove, onRelease) {
+  const zone  = document.getElementById(zoneId);
+  const stick = document.getElementById(stickId);
+  if (!zone || !stick) return;
+
+  let active = false;
+  let nx = 0, ny = 0; // normalised -1..+1
+
+  function getPos(e) {
+    const r = zone.getBoundingClientRect();
+    const rx = zone.offsetWidth  / 2;
+    const ry = zone.offsetHeight / 2;
+    const src = e.touches ? e.touches[0] : e;
+    const dx = src.clientX - r.left  - rx;
+    const dy = src.clientY - r.top   - ry;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const maxR = rx - 22; // 22 = half stick radius
+    const clamp = Math.min(dist, maxR);
+    nx = dist > 0 ? (dx / dist) * (clamp / maxR) : 0;
+    ny = dist > 0 ? (dy / dist) * (clamp / maxR) : 0;
+    // Move stick visually
+    stick.style.left = (rx + nx * maxR) + 'px';
+    stick.style.top  = (ry + ny * maxR) + 'px';
+  }
+
+  function start(e) {
+    active = true;
+    zone.classList.add('active');
+    getPos(e);
+    e.preventDefault();
+  }
+  function move(e) {
+    if (!active) return;
+    getPos(e);
+    e.preventDefault();
+  }
+  function end() {
+    if (!active) return;
+    active = false;
+    nx = 0; ny = 0;
+    zone.classList.remove('active');
+    stick.style.left = '50%';
+    stick.style.top  = '50%';
+    onRelease();
+  }
+
+  zone.addEventListener('mousedown',  start);
+  zone.addEventListener('touchstart', start, { passive: false });
+  window.addEventListener('mousemove',  move);
+  window.addEventListener('touchmove',  move, { passive: false });
+  window.addEventListener('mouseup',    end);
+  window.addEventListener('touchend',   end);
+
+  // Expose live values via closure
+  return () => ({ x: nx, y: ny, active });
+}
+
+function initJoysticks() {
+  // Speed from global: 1 (slow) → 5 (fast) → maps to degrees/tick
+  const getSpeed = () => parseInt(document.getElementById('joy-speed')?.value || 2);
+
+  let leftGet  = null;
+  let rightGet = null;
+  let joyTimer = null;
+
+  function joyTick() {
+    const spd = getSpeed() * 1.2; // max ~6 deg/tick at speed 5
+    if (leftGet) {
+      const { x, y, active } = leftGet();
+      if (active || (Math.abs(x) > 0.02 || Math.abs(y) > 0.02)) {
+        const bj = joints.find(j => j.id === 'BASE');
+        const sj = joints.find(j => j.id === 'SHOULDER');
+        if (bj && Math.abs(x) > 0.05) {
+          const newV = Math.round(Math.min(180, Math.max(0, bj.val + x * spd)));
+          if (newV !== bj.val) { bj.val = newV; syncJoint('BASE', newV); }
+        }
+        if (sj && Math.abs(y) > 0.05) {
+          // Y-axis inverted: push up = decrease angle
+          const newV = Math.round(Math.min(180, Math.max(0, sj.val + y * spd)));
+          if (newV !== sj.val) { sj.val = newV; syncJoint('SHOULDER', newV); }
+        }
+      }
+    }
+    if (rightGet) {
+      const { x, y, active } = rightGet();
+      if (active || (Math.abs(x) > 0.02 || Math.abs(y) > 0.02)) {
+        const aj = joints.find(j => j.id === 'ARM');
+        const w1 = joints.find(j => j.id === 'J1');
+        if (aj && Math.abs(x) > 0.05) {
+          const newV = Math.round(Math.min(180, Math.max(0, aj.val + x * spd)));
+          if (newV !== aj.val) { aj.val = newV; syncJoint('ARM', newV); }
+        }
+        if (w1 && Math.abs(y) > 0.05) {
+          const newV = Math.round(Math.min(180, Math.max(0, w1.val + y * spd)));
+          if (newV !== w1.val) { w1.val = newV; syncJoint('J1', newV); }
+        }
+      }
+    }
+  }
+
+  // Update UI + send command without recursion
+  function syncJoint(id, val) {
+    // Update slider
+    const slider = document.querySelector(`#arm-ctrl input[oninput*="'${id}'"]`);
+    if (slider) slider.value = val;
+    // Update label
+    const lbl = document.getElementById(`jv-${id}`);
+    if (lbl) lbl.textContent = val + '°';
+    // Update joke axis display
+    if (id === 'BASE')     { const el = document.getElementById('jl-x'); if (el) el.textContent = val + '°'; }
+    if (id === 'SHOULDER') { const el = document.getElementById('jl-y'); if (el) el.textContent = val + '°'; }
+    if (id === 'ARM')      { const el = document.getElementById('jr-x'); if (el) el.textContent = val + '°'; }
+    if (id === 'J1')       { const el = document.getElementById('jr-y'); if (el) el.textContent = val + '°'; }
+    // Send over WS
+    sendArmCmd(id, val);
+    // Also update SVG via updateJoint but without re-sending
+    updateJoint(id, val, false);
+  }
+
+  leftGet  = createJoystick('joy-left',  'joy-left-stick',  () => {}, () => {});
+  rightGet = createJoystick('joy-right', 'joy-right-stick', () => {}, () => {});
+
+  // Run tick at 80ms (≈12fps) — smooth enough for servos
+  joyTimer = setInterval(joyTick, 80);
+}
+
+
+function updateJoint(id, val, send=true) {
+  const j = joints.find(x => x.id === id);
+  if (!j) return;
+  j.val = parseInt(val);
+  const lbl = document.getElementById(`jv-${id}`);
+  if (lbl) lbl.textContent = val + '°';
+
+  // SVG visualizer update
+  const g = document.getElementById(j.svgId);
+  if (g) {
+    // Convert 0-180° servo angle to visual rotation (-90 to +90 from vertical)
+    const rot = parseInt(val) - 90;
+    if (id === 'BASE') {
+      // Base: rotate whole arm root
+      const root = document.getElementById('j1g');
+      if (root) root.setAttribute('transform', `rotate(${rot})`);
+    } else if (id === 'GRIP') {
+      // Gripper: open/close the finger lines
+      const gl = document.getElementById('grip-l');
+      const gr = document.getElementById('grip-r');
+      const spread = Math.round((90 - parseInt(val)) / 3);
+      if (gl) gl.setAttribute('x1', -(spread+6).toString());
+      if (gr) gr.setAttribute('x1',  (spread+6).toString());
+    } else {
+      // Other joints: rotate within chain
+      const baseT = { SHOULDER:'translate(0,0)', ARM:'translate(0,-100)', J1:'translate(0,-80)', J2:'translate(0,-60)' }[id] || '';
+      g.setAttribute('transform', baseT + ` rotate(${rot})`);
+    }
+  }
+
+  if (send) sendArmCmd(j.wsKey, val);
+}
+
+// Presets: [ BASE, SHOULDER, ARM, J1, J2, GRIP ]
+const presets = {
+  home:   [90,  90,  90,  90,  90,  0 ],
+  grab:   [90,  60, 120,  90,  90,  90],
+  extend: [90,  90,  45,  90,  90,  0 ],
+  stow:   [90, 170, 170, 170, 170,  0 ],
+};
+
+function armPreset(n) {
+  const v = presets[n];
+  const sliders = document.querySelectorAll('#arm-ctrl input[type=range]');
+  joints.forEach((j, i) => {
+    j.val = v[i];
+    if (sliders[i]) sliders[i].value = v[i];
+    updateJoint(j.id, v[i]);
+  });
+  toast('info', `Arm preset: ${n.toUpperCase()}`, 'fa-robot');
+}
+
+// ══════════════════════════════════════════════
+//  TERMINAL
+// ══════════════════════════════════════════════
+function tprint(cls, msg) {
+  const out = document.getElementById('term-out'); if (!out) return;
+  const ts = new Date().toLocaleTimeString('en-GB');
+  const d = document.createElement('div'); d.className = 'tline';
+  d.innerHTML = `<span class="tts">[${ts}]</span><span class="${cls==='tx'?'ttx':cls==='rx'?'trx':'tsys'}">${msg}</span>`;
+  out.appendChild(d); out.scrollTop = out.scrollHeight;
+  if (out.children.length > 300) out.firstElementChild.remove();
+}
+
+function sendCmd(cmd) {
+  tprint('tx', '> ' + cmd);
+  if (cmd === 'PING') setTimeout(() => tprint('rx','< PONG (12ms)'), 200);
+  else if (cmd === 'STATUS') setTimeout(() => tprint('rx','< STATUS:OK:MOTORS:OK:IMU:OK'), 200);
+  else if (cmd === 'RTH') returnHome();
+  else if (cmd === 'ESTOP') emergencyStop();
+  else if (cmd === 'SENSOR:ALL') setTimeout(() => tprint('rx',`< TEMP:${sTemp} HUM:18 VOLT:${sVolt} RSSI:-${sRssi}`), 300);
+  else setTimeout(() => tprint('rx','< ACK:' + cmd), 150);
+}
+
+function onTermKey(e) {
+  if (e.key === 'Enter') {
+    const inp = document.getElementById('term-inp');
+    const cmd = inp.value.trim().toUpperCase();
+    if (cmd) { sendCmd(cmd); inp.value = ''; }
+  }
+}
+
+function clearTerm() { document.getElementById('term-out').innerHTML = ''; }
+
+// ══════════════════════════════════════════════
+//  SETTINGS
+// ══════════════════════════════════════════════
+
+// ── Ultrasonic WebSocket (ESP8266) ─────────────
+let sonarWs = null;
+const SONAR_WARN_CM = 60;   // < 60cm = warning
+const SONAR_CRIT_CM = 25;   // < 25cm = critical / hazard arc
+
+function connectUltrasonicWs(rawUrl) {
+  if (sonarWs) sonarWs.close();
+  try {
+    let url = rawUrl.trim();
+    if (!url.startsWith('ws://') && !url.startsWith('wss://')) url = 'ws://' + url;
+
+    sonarWs = new WebSocket(url);
+
+    sonarWs.onopen = () => {
+      tprint('sys', 'Ultrasonic WS connected: ' + url);
+      updateDeviceCard('sonar', url.replace('ws://','').split(':')[0], true, 0);
+      toast('ok', 'Ultrasonic node connected', 'fa-satellite-dish');
+    };
+
+    sonarWs.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);  // {F, B, L, R}
+        updateRadar(d);
+      } catch(ex) {}
+    };
+
+    sonarWs.onclose = () => {
+      tprint('sys', 'Ultrasonic WS disconnected');
+      updateDeviceCard('sonar', null, false, 0);
+      setTimeout(() => connectUltrasonicWs(rawUrl), 4000); // auto-reconnect
+    };
+
+    sonarWs.onerror = () => tprint('rx', 'Ultrasonic WS error');
+  } catch(e) {
+    tprint('rx', 'Ultrasonic connect failed: ' + e.message);
+  }
+}
+
+function updateRadar(d) {
+  // d = { F:cm, B:cm, L:cm, R:cm, pitch:°, roll:°, temp:°C }
+  const dirs = [
+    { key:'F', elId:'prox-n', arcId:'h-n', alertKey:'N' },
+    { key:'B', elId:'prox-s', arcId:'h-s', alertKey:'S' },
+    { key:'L', elId:'prox-w', arcId:'h-w', alertKey:'W' },
+    { key:'R', elId:'prox-e', arcId:'h-e', alertKey:'E' },
+  ];
+
+  let alerts = [];
+
+  dirs.forEach(dir => {
+    const cm = d[dir.key];
+    if (cm === undefined) return;
+    const m = (cm / 100).toFixed(2);
+
+    const el = document.getElementById(dir.elId);
+    if (el) {
+      const isCrit = cm < SONAR_CRIT_CM;
+      const isWarn = cm < SONAR_WARN_CM;
+      el.innerHTML = `${m} m ${isCrit ? '⚠' : isWarn ? '!' : '✓'}`;
+      el.style.color = isCrit ? 'var(--red)' : isWarn ? 'var(--acc)' : 'var(--grn)';
+    }
+
+    const arc = document.getElementById(dir.arcId);
+    if (arc) {
+      if (cm < SONAR_CRIT_CM) arc.classList.add('on');
+      else                     arc.classList.remove('on');
+    }
+
+    if (cm < SONAR_WARN_CM) alerts.push(`${dir.alertKey}: ${m}m`);
+  });
+
+  // Collision alert banner
+  const alertEl = document.getElementById('coll-alert');
+  if (alertEl) {
+    if (alerts.length) {
+      alertEl.textContent = '[ OBSTACLE: ' + alerts.join('  ') + ' ]';
+      alertEl.style.display = 'block';
+    } else {
+      alertEl.textContent = '';
+      alertEl.style.display = 'none';
+    }
+  }
+
+  // ── MPU-6050: Pitch, Roll, Temperature ──────────────────
+  if (d.pitch !== undefined) {
+    sPitch = d.pitch; // hook into globals for 3D cube + graphs
+    const pv = document.getElementById('s-pitch');
+    const pb = document.getElementById('sb-pitch');
+    const pi = document.getElementById('imu-pitch-v');
+    const ib = document.getElementById('imu-pb');
+    const pVal = d.pitch.toFixed(1);
+    if (pv) pv.textContent = pVal;
+    if (pi) pi.textContent = pVal + '°';
+    if (pb) pb.style.width = Math.min(100, Math.abs(d.pitch) / 90 * 100).toFixed(1) + '%';
+    if (ib) ib.style.width = Math.min(100, Math.abs(d.pitch) / 90 * 100).toFixed(1) + '%';
+  }
+
+  if (d.roll !== undefined) {
+    sRoll = d.roll;
+    const rv = document.getElementById('s-roll');
+    const rb = document.getElementById('sb-roll');
+    const ri = document.getElementById('imu-roll-v');
+    const rb2= document.getElementById('imu-rb');
+    const rVal = d.roll.toFixed(1);
+    if (rv) rv.textContent = rVal;
+    if (ri) ri.textContent = rVal + '°';
+    if (rb)  rb.style.width  = Math.min(100, Math.abs(d.roll) / 90 * 100).toFixed(1) + '%';
+    if (rb2) rb2.style.width = Math.min(100, Math.abs(d.roll) / 90 * 100).toFixed(1) + '%';
+  }
+
+  if (d.temp !== undefined) {
+    sTemp = d.temp;
+    const tv  = document.getElementById('s-temp');
+    const tb  = document.getElementById('sb-temp');
+    const glt = document.getElementById('gl-temp');
+    const tVal = d.temp.toFixed(1);
+    if (tv)  tv.textContent  = tVal;
+    if (glt) glt.textContent = tVal;
+    if (tb)  tb.style.width  = Math.min(100, d.temp / 85 * 100).toFixed(1) + '%';
+  }
+
+  // ── Debug MPU via Terminal (throttled to every 3s) ───────
+  if (!window.lastMpuLog) window.lastMpuLog = 0;
+  if (Date.now() - window.lastMpuLog > 3000) {
+    window.lastMpuLog = Date.now();
+    if (d.pitch !== undefined) {
+      tprint('sys', `[MPU RAW] Pitch: ${d.pitch.toFixed(1)}° | Roll: ${d.roll.toFixed(1)}° | Temp: ${d.temp.toFixed(1)}°C`);
+    } else {
+      tprint('err', '[MPU ERROR] No IMU data in WebSocket JSON payload! Is MPU-6050 wired correctly?');
+    }
+  }
+}
+
+
+
+function connectWebSocket(rawUrl) {
+
+  if (window.roverWs) window.roverWs.close();
+  try {
+    let url = rawUrl.trim();
+    if (!url.startsWith('ws://') && !url.startsWith('wss://')) url = 'ws://' + url;
+    if (url.split(':').length === 2 && !url.includes('.com') && !url.includes('.net')) url = url + ':81'; // auto add port 81 if just IP
+    
+    window.roverWs = new WebSocket(url);
+    window.roverWs.onopen = () => {
+      document.getElementById('ip-lbl').textContent = url.replace('ws://','');
+      document.getElementById('conn-led').className = 'led lg';
+      document.getElementById('conn-lbl').textContent = 'CONNECTED';
+      document.getElementById('hud-conn').textContent = '● ONLINE';
+      document.getElementById('term-st').style.color = 'var(--grn)';
+      document.getElementById('term-st').textContent = 'CONNECTED';
+      toast('ok', 'Connected to Rover backend', 'fa-wifi');
+      tprint('sys', 'WebSocket connected to ' + url);
+    };
+    window.roverWs.onclose = () => {
+      document.getElementById('conn-led').className = 'led lr';
+      document.getElementById('conn-lbl').textContent = 'OFFLINE';
+      document.getElementById('hud-conn').textContent = '○ OFFLINE';
+      document.getElementById('term-st').style.color = 'var(--red)';
+      document.getElementById('term-st').textContent = 'DISCONNECTED';
+      toast('err', 'WebSocket disconnected', 'fa-exclamation');
+    };
+    window.roverWs.onerror = (e) => {
+      tprint('rx', 'WebSocket error occurred');
+    };
+  } catch (e) {
+    toast('err', 'Failed to connect: ' + e.message, 'fa-exclamation');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  CAMERA STREAM STATE MACHINE
+// ══════════════════════════════════════════════
+let streamUrl = '';
+let streamRetryTimer = null;
+let streamHealthTimer = null;
+
+function setCamState(state) {
+  const img    = document.getElementById('main-stream');
+  const idle   = document.getElementById('cam-state-idle');
+  const conn   = document.getElementById('cam-state-connecting');
+  const err    = document.getElementById('cam-state-error');
+  const scanEl = document.getElementById('cam-scan');
+
+  idle.style.display = 'none';
+  conn.style.display = 'none';
+  err.style.display  = 'none';
+  img.style.display  = 'none';
+  if (scanEl) scanEl.style.display = 'none';
+
+  if (state === 'idle')        { idle.style.display = 'flex'; }
+  else if (state === 'connecting') { conn.style.display = 'flex'; }
+  else if (state === 'live')   { img.style.display = 'block'; if(scanEl) scanEl.style.display='block'; }
+  else if (state === 'error')  { err.style.display  = 'flex'; }
+}
+
+function startStream(url) {
+  stopStream();
+  streamUrl = url.trim();
+  if (!streamUrl) { setCamState('idle'); return; }
+
+  document.getElementById('cam-url-connecting').textContent = streamUrl;
+  document.getElementById('cam-url-error').textContent = streamUrl;
+  document.getElementById('cam-url-hint').textContent = streamUrl;
+  setCamState('connecting');
+  tprint('sys', 'CAM: connecting to ' + streamUrl);
+
+  const img = document.getElementById('main-stream');
+  const driveImg = document.getElementById('drive-stream');
+
+  // Remove and re-add src to force browser to try fresh
+  img.src = '';
+  if (driveImg) driveImg.src = '';
+
+  // Assign src immediately — MJPEG streams must NOT use onerror (browser fires it incorrectly for multipart/x-mixed-replace)
+  setTimeout(() => {
+    img.onerror = null;  // Disable onerror — it breaks MJPEG
+    img.onload  = null;  // Not reliable for MJPEG either
+
+    img.crossOrigin = 'anonymous';  // Required so canvas.toDataURL() works (CORS snapshot)
+    img.src = streamUrl;
+    if (driveImg) { driveImg.crossOrigin = 'anonymous'; driveImg.src = streamUrl; }
+
+    // Immediately show the img — browser will render frames as they arrive
+    setCamState('live');
+    if (driveImg) {
+      driveImg.style.display = 'block';
+      const fb = document.getElementById('drive-cam-fb');
+      if (fb) fb.style.display = 'none';
+    }
+    tprint('sys', 'CAM: stream started → ' + streamUrl);
+
+    // Health-check every 3s: if img.naturalHeight = 0 the stream died
+    let healthFails = 0;
+    streamHealthTimer = setInterval(() => {
+      if (!img.src || img.src === window.location.href) { clearInterval(streamHealthTimer); return; }
+      if (img.naturalHeight === 0) {
+        healthFails++;
+        if (healthFails >= 3) {
+          clearInterval(streamHealthTimer);
+          setCamState('error');
+          if (driveImg) driveImg.style.display = 'none';
+          tprint('rx', 'CAM: stream lost — ' + streamUrl);
+          streamRetryTimer = setTimeout(() => retryStream(), 5000);
+        }
+      } else {
+        healthFails = 0; // reset if stream recovers
+      }
+    }, 3000);
+  }, 150);
+}
+
+function stopStream() {
+  clearTimeout(streamRetryTimer);
+  clearTimeout(streamHealthTimer);
+  const img = document.getElementById('main-stream');
+  const driveImg = document.getElementById('drive-stream');
+  if (img) { img.src = ''; img.style.display = 'none'; }
+  if (driveImg) { driveImg.src = ''; driveImg.style.display = 'none'; }
+}
+
+function retryStream() {
+  clearTimeout(streamRetryTimer);
+  if (streamUrl) startStream(streamUrl);
+}
+
+function saveSettings() {
+  const camInput   = document.getElementById('cam-ip');
+  const wsInput    = document.getElementById('ws-ip');
+  const sonarInput = document.getElementById('sonar-ip');
+  const cam   = camInput.value.trim();
+  const ws    = wsInput.value.trim();
+  const sonar = sonarInput ? sonarInput.value.trim() : '';
+  if (cam)   localStorage.setItem('titan_cam',   cam);
+  if (ws)    localStorage.setItem('titan_ws',    ws);
+  if (sonar) localStorage.setItem('titan_sonar', sonar);
+  if (cam)   startStream(cam);
+  if (ws)    connectWebSocket(ws);
+  if (sonar) connectUltrasonicWs(sonar);
+  toast('ok','Settings saved & applied','fa-save');
+}
+
+function factoryReset() {
+  if (confirm('Factory reset? All settings will be cleared.')) {
+    localStorage.clear(); toast('err','Factory reset performed','fa-exclamation'); location.reload();
+  }
+}
+
+function applySettings() {
+  const cam   = localStorage.getItem('titan_cam');
+  const ws    = localStorage.getItem('titan_ws');
+  const sonar = localStorage.getItem('titan_sonar');
+  if (cam)   { document.getElementById('cam-ip').value   = cam;   startStream(cam); }
+  if (ws)    { document.getElementById('ws-ip').value    = ws;    connectWebSocket(ws); }
+  if (sonar) { const el = document.getElementById('sonar-ip'); if(el) el.value = sonar; connectUltrasonicWs(sonar); }
+}
+
+// ══════════════════════════════════════════════
+//  CONNECTED DEVICES PING
+// ══════════════════════════════════════════════
+function updateDeviceCard(id, ip, online, pingMs, label) {
+  const card   = document.getElementById('dev-' + id);
+  const led    = document.getElementById('dev-' + id + '-led');
+  const stEl   = document.getElementById('dev-' + id + '-st');
+  const ipEl   = document.getElementById('dev-' + id + '-ip');
+  if (!card) return;
+  if (online) {
+    card.className = 'dev-card online';
+    led.className  = 'led lg';
+    stEl.textContent = `● ONLINE  —  ${pingMs}ms`;
+    stEl.style.color = 'var(--grn)';
+  } else {
+    card.className = 'dev-card offline';
+    led.className  = 'led lr';
+    stEl.textContent = '○ OFFLINE — not reachable';
+    stEl.style.color = 'var(--red)';
+  }
+  if (ipEl && ip) ipEl.textContent = ip;
+}
+
+function pingDevices() {
+  const wsUrl  = (localStorage.getItem('titan_ws')  || 'ws://192.168.137.39:81').replace('ws://', 'http://').replace(':81', ':80');
+  const camUrl = (localStorage.getItem('titan_cam') || 'http://192.168.137.50:81/stream').replace('/stream', '');
+  const motorIp = wsUrl.replace('http://', '').split(':')[0];
+  const camIp   = camUrl.replace('http://', '').split(':')[0];
+
+  document.getElementById('dev-motor-st').textContent = 'Pinging...';
+  document.getElementById('dev-cam-st').textContent   = 'Pinging...';
+
+  // Ping motor ESP32 via HTTP GET /
+  const t0 = Date.now();
+  fetch(wsUrl + '/', { signal: AbortSignal.timeout(2500) })
+    .then(r => updateDeviceCard('motor', motorIp, true, Date.now() - t0))
+    .catch(() => updateDeviceCard('motor', motorIp, false, 0));
+
+  // Ping ESP32-CAM via HTTP GET (stream URL base)
+  const t1 = Date.now();
+  fetch(camUrl + '/', { signal: AbortSignal.timeout(2500) })
+    .then(r => updateDeviceCard('cam', camIp, true, Date.now() - t1))
+    .catch(() => updateDeviceCard('cam', camIp, false, 0));
+
+  const ts = new Date().toLocaleTimeString('en-GB');
+  const lp = document.getElementById('dev-last-ping');
+  if (lp) lp.textContent = 'Last scan: ' + ts;
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+window.onload = () => {
+  applySettings();
+  initArm();
+  // Boot log
+  tprint('sys','════ TITAN-V2 MISSION CONTROL ════');
+  tprint('sys','Firmware v2.4.1-beta | ESP32-S3');
+  tprint('sys','Features: OTA | Gamepad | Graphs | IMU 3D | Recorder');
+  tprint('sys','══════════════════════════════════');
+  // Delayed boot events
+  setTimeout(() => logEntry('o','System power-on OK'), 100);
+  setTimeout(() => logEntry('i','Sensors init: IMU, Ultrasonic, DHT22'), 400);
+  setTimeout(() => logEntry('w','WebSocket not connected — check Settings'), 700);
+  setTimeout(() => logEntry('i','Gamepad API: plug in a controller to drive'), 1000);
+  // Auto-ping devices every 10s
+  setTimeout(() => pingDevices(), 1500);
+  setInterval(() => pingDevices(), 10000);
+  // Init trail start position
+  trailPoints.push({ x: 55, y: 70 });
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITAN-1 | Tactical Rover Command</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #05070a;
+            --panel-bg: #10141b;
+            --accent-cyan: #00f2ff;
+            --accent-warn: #ff8c00;
+            --accent-danger: #ff3333;
+            --text-dim: #8b949e;
+            --grid-line: rgba(0, 242, 255, 0.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg-dark); color: #fff; height: 100vh; display: flex; overflow: hidden; }
+
+        /* --- NAVIGATION --- */
+        nav { width: 70px; background: #0d1117; display: flex; flex-direction: column; align-items: center; padding: 20px 0; border-right: 1px solid #30363d; }
+        .nav-item { width: 45px; height: 45px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; color: var(--text-dim); transition: 0.2s; }
+        .nav-item.active { background: var(--accent-cyan); color: #000; box-shadow: 0 0 15px rgba(0, 242, 255, 0.4); }
+
+        /* --- LAYOUT --- */
+        main { flex: 1; padding: 20px; overflow-y: auto; position: relative; }
+        .page { display: none; height: 100%; }
+        .page.active { display: block; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+        .card { background: var(--panel-bg); border: 1px solid #30363d; border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+        .grid-layout { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; }
+
+        /* --- ROBOTIC ARM VISUALIZER (SVG Kinematics) --- */
+        .arm-viz-container {
+            width: 100%;
+            height: 450px;
+            background: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 30px 30px;
+            background-color: #080a0f;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .joint-label { font-size: 10px; fill: var(--text-dim); }
+        .arm-link { stroke: var(--accent-cyan); stroke-width: 8; stroke-linecap: round; }
+        .arm-joint { fill: #fff; stroke: var(--accent-cyan); stroke-width: 2; }
+
+        /* --- RADAR SYSTEM --- */
+        .radar-box {
+            width: 320px;
+            height: 320px;
+            margin: 0 auto;
+            position: relative;
+            background: radial-gradient(circle, #161b22 0%, #080a0f 70%);
+            border-radius: 50%;
+            border: 2px solid #21262d;
+        }
+        .radar-sweep {
+            position: absolute;
+            width: 50%; height: 50%;
+            top: 0; left: 50%;
+            background: linear-gradient(45deg, rgba(0, 242, 255, 0.2) 0%, transparent 70%);
+            transform-origin: bottom left;
+            animation: sweep 4s linear infinite;
+            border-left: 1px solid var(--accent-cyan);
+        }
+        @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .proximity-wave {
+            position: absolute;
+            border: 4px solid var(--accent-warn);
+            border-radius: 50%;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        /* Tactical Arcs */
+        .p-north { top: 20px; left: 50%; transform: translateX(-50%); width: 100px; height: 40px; border-radius: 60px 60px 0 0; border-bottom: 0; }
+        .p-south { bottom: 20px; left: 50%; transform: translateX(-50%); width: 100px; height: 40px; border-radius: 0 0 60px 60px; border-top: 0; }
+        .p-east { right: 20px; top: 50%; transform: translateY(-50%); width: 40px; height: 100px; border-radius: 0 60px 60px 0; border-left: 0; }
+        .p-west { left: 20px; top: 50%; transform: translateY(-50%); width: 40px; height: 100px; border-radius: 60px 0 0 60px; border-right: 0; }
+        
+        .active-hazard { opacity: 1; animation: pulse-hazard 0.5s infinite alternate; }
+        @keyframes pulse-hazard { from { border-color: var(--accent-warn); filter: drop-shadow(0 0 2px var(--accent-warn)); } to { border-color: var(--accent-danger); filter: drop-shadow(0 0 10px var(--accent-danger)); } }
+
+        /* --- CONTROLS --- */
+        input[type=range] { width: 100%; height: 6px; background: #30363d; border-radius: 5px; appearance: none; outline: none; margin: 15px 0; }
+        input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: var(--accent-cyan); border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px var(--accent-cyan); }
+
+        .btn-action { background: #21262d; border: 1px solid #30363d; color: white; padding: 10px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .btn-action:hover { background: #30363d; border-color: var(--accent-cyan); }
+
+        .status-tag { padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .tag-online { background: rgba(0, 242, 255, 0.1); color: var(--accent-cyan); }
+
+        .log-container { height: 150px; background: #080a0f; border: 1px solid #30363d; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; color: #7d8590; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="nav-item active" onclick="showPage('home')"><i class="fas fa-satellite-dish"></i></div>
+        <div class="nav-item" onclick="showPage('drive')"><i class="fas fa-gamepad"></i></div>
+        <div class="nav-item" onclick="showPage('arm')"><i class="fas fa-robot"></i></div>
+    </nav>
+
+    <main>
+        <!-- GLOBAL HEADER -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+            <div>
+                <h1 style="font-size: 1.2rem; letter-spacing: 2px;">ROVER_CORE <span style="color: var(--accent-cyan);">v2.0.4</span></h1>
+                <p style="font-size: 12px; color: var(--text-dim);">LAT: 40.7128° N | LON: 74.0060° W</p>
+            </div>
+            <div style="display: flex; gap: 20px;">
+                <div class="status-tag tag-online">Signal: 98%</div>
+                <div class="status-tag tag-online" style="color: #afff33;">Battery: 84%</div>
+                <button onclick="alert('SYSTEM SHUTDOWN')" style="background: var(--accent-danger); border: none; color: #fff; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">E-STOP</button>
+            </div>
+        </div>
+
+        <!-- PAGE: HOME -->
+        <div id="home" class="page active">
+            <div class="grid-layout">
+                <div class="card" style="grid-column: span 8;">
+                    <div style="height: 400px; background: #000; border-radius: 8px; position: relative;">
+                        <img src="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&q=80&w=1000" style="width:100%; height:100%; object-fit:cover; opacity: 0.6;">
+                        <div style="position: absolute; top: 20px; left: 20px; color: var(--accent-cyan); font-family: monospace;">[ FEED_01_PRIMARY ]</div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 4;">
+                    <h3 style="margin-bottom: 15px; font-size: 14px;">ENVIRONMENTAL DATA</h3>
+                    <div style="display: grid; gap: 15px;">
+                        <div class="card" style="background: rgba(255,255,255,0.03);">
+                            <span style="color: var(--text-dim); font-size: 12px;">Temperature</span>
+                            <div style="font-size: 24px; color: var(--accent-warn);">24.8°C</div>
+                        </div>
+                        <div class="card" style="background: rgba(255,255,255,0.03);">
+                            <span style="color: var(--text-dim); font-size: 12px;">Humidity</span>
+                            <div style="font-size: 24px; color: var(--accent-cyan);">42%</div>
+                        </div>
+                        <div class="card" style="background: rgba(255,255,255,0.03);">
+                            <span style="color: var(--text-dim); font-size: 12px;">Radiation Level</span>
+                            <div style="font-size: 24px; color: #afff33;">0.12 mSv/h</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE: DRIVE -->
+        <div id="drive" class="page">
+            <div class="grid-layout">
+                <div class="card" style="grid-column: span 8;">
+                    <div style="height: 450px; background: #000; border-radius: 8px; position: relative; border: 1px solid var(--accent-cyan);">
+                        <div style="position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 242, 255, 0.05) 3px);"></div>
+                        <div style="position: absolute; bottom: 20px; left: 20px; font-family: monospace; color: var(--accent-cyan);">
+                            DRIVE_MODE: MANUAL<br>
+                            VELOCITY: 1.2 m/s<br>
+                            STEER: 0.0°
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="grid-column: span 4; text-align: center;">
+                    <h3 style="font-size: 14px; margin-bottom: 20px; color: var(--text-dim);">PROXIMITY SCANNER</h3>
+                    <div class="radar-box">
+                        <div class="radar-sweep"></div>
+                        <!-- Proximity Hazard Arcs -->
+                        <div id="warn-n" class="proximity-wave p-north"></div>
+                        <div id="warn-s" class="proximity-wave p-south"></div>
+                        <div id="warn-e" class="proximity-wave p-east"></div>
+                        <div id="warn-w" class="proximity-wave p-west active-hazard"></div>
+                        
+                        <!-- Rover Body Top-Down SVG -->
+                        <svg viewBox="0 0 100 100" style="position:absolute; width:60px; top:50%; left:50%; transform:translate(-50%, -50%);">
+                            <rect x="30" y="25" width="40" height="50" rx="5" fill="#161b22" stroke="white" />
+                            <rect x="25" y="30" width="10" height="15" fill="var(--accent-cyan)" /> <!-- Wheels -->
+                            <rect x="65" y="30" width="10" height="15" fill="var(--accent-cyan)" />
+                            <rect x="25" y="55" width="10" height="15" fill="var(--accent-cyan)" />
+                            <rect x="65" y="55" width="10" height="15" fill="var(--accent-cyan)" />
+                        </svg>
+                    </div>
+                    <p id="radar-status" style="margin-top: 15px; color: var(--accent-danger); font-size: 13px; font-weight: bold;">
+                        <i class="fas fa-exclamation-triangle"></i> WEST OBSTACLE: 0.4m
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE: ARM -->
+        <div id="arm" class="page">
+            <div class="grid-layout">
+                <div class="card" style="grid-column: span 4;">
+                    <h3 style="margin-bottom: 20px; font-size: 14px; letter-spacing: 1px;">6-AXIS KINEMATICS</h3>
+                    
+                    <div class="arm-control-group">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim);">
+                            <span>AXIS 1 (BASE)</span><span id="val-1">0°</span>
+                        </div>
+                        <input type="range" min="-180" max="180" value="0" oninput="moveArm(1, this.value)">
+                    </div>
+
+                    <div class="arm-control-group">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim);">
+                            <span>AXIS 2 (SHOULDER)</span><span id="val-2">-45°</span>
+                        </div>
+                        <input type="range" min="-90" max="90" value="-45" oninput="moveArm(2, this.value)">
+                    </div>
+
+                    <div class="arm-control-group">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim);">
+                            <span>AXIS 3 (ELBOW)</span><span id="val-3">90°</span>
+                        </div>
+                        <input type="range" min="-150" max="150" value="90" oninput="moveArm(3, this.value)">
+                    </div>
+
+                    <div class="arm-control-group">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim);">
+                            <span>AXIS 4 (WRIST)</span><span id="val-4">0°</span>
+                        </div>
+                        <input type="range" min="-180" max="180" value="0" oninput="moveArm(4, this.value)">
+                    </div>
+
+                    <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button class="btn-action" onclick="resetArm()">PARK POSITION</button>
+                        <button class="btn-action" style="border-color: var(--accent-cyan);">RECORD MACRO</button>
+                    </div>
+                </div>
+
+                <div class="card" style="grid-column: span 8;">
+                    <div class="arm-viz-container">
+                        <!-- THE KINEMATIC CHAIN SVG -->
+                        <svg width="100%" height="100%" viewBox="0 0 400 400">
+                            <!-- Axis 1: Base -->
+                            <g transform="translate(200, 350)">
+                                <rect x="-40" y="0" width="80" height="20" fill="#21262d" />
+                                <text x="-35" y="40" class="joint-label">BASE_PLATE</text>
+                                
+                                <!-- Axis 2: Shoulder -->
+                                <g id="joint2" transform="rotate(-45)">
+                                    <line x1="0" y1="0" x2="0" y2="-100" class="arm-link" />
+                                    <circle cx="0" cy="0" r="6" class="arm-joint" />
+                                    
+                                    <!-- Axis 3: Elbow -->
+                                    <g id="joint3" transform="translate(0, -100) rotate(90)">
+                                        <line x1="0" y1="0" x2="0" y2="-80" class="arm-link" />
+                                        <circle cx="0" cy="0" r="6" class="arm-joint" />
+                                        
+                                        <!-- Axis 4: Wrist -->
+                                        <g id="joint4" transform="translate(0, -80) rotate(0)">
+                                            <line x1="0" y1="0" x2="0" y2="-40" class="arm-link" stroke-width="4" />
+                                            <circle cx="0" cy="0" r="4" class="arm-joint" />
+                                            
+                                            <!-- Gripper -->
+                                            <g id="gripper" transform="translate(0, -40)">
+                                                <path d="M-10,-10 L-10,5 M10,-10 L10,5" stroke="var(--accent-cyan)" stroke-width="3" fill="none" />
+                                                <circle cx="0" cy="0" r="3" fill="var(--accent-warn)" />
+                                            </g>
+                                        </g>
+                                    </g>
+                                </g>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="log-container" id="mission-log">
+                        > System Initialized...<br>
+                        > Axis controllers online...<br>
+                        > Ready for Kinematic Input...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Page Router
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // Arm Kinematics Controller
+        function moveArm(axis, val) {
+            const joint = document.getElementById(`joint${axis}`);
+            const label = document.getElementById(`val-${axis}`);
+            
+            if (label) label.innerText = val + "°";
+            
+            if (joint) {
+                // Apply rotation to the nested group
+                joint.setAttribute('transform', axis === 2 || axis === 3 || axis === 4 
+                    ? joint.getAttribute('transform').replace(/rotate\(.*?\)/, `rotate(${val})`)
+                    : `rotate(${val})` 
+                );
+            }
+
+            // Log activity
+            const log = document.getElementById('mission-log');
+            const entry = document.createElement('div');
+            entry.innerHTML = `> Axis ${axis} moved to ${val}°`;
+            log.prepend(entry);
+        }
+
+        function resetArm() {
+            const defaults = { 1: 0, 2: -45, 3: 90, 4: 0 };
+            Object.keys(defaults).forEach(axis => {
+                moveArm(axis, defaults[axis]);
+                // Update slider values visually
+                const slider = document.querySelector(`input[oninput="moveArm(${axis}, this.value)"]`);
+                if(slider) slider.value = defaults[axis];
+            });
+        }
+
+        // Simulate Dynamic Radar
+        setInterval(() => {
+            const dirs = ['n', 's', 'e', 'w'];
+            dirs.forEach(d => document.getElementById(`warn-${d}`).classList.remove('active-hazard'));
+            
+            const randomDir = dirs[Math.floor(Math.random() * dirs.length)];
+            const dist = (Math.random() * 2).toFixed(1);
+            
+            document.getElementById(`warn-${randomDir}`).classList.add('active-hazard');
+            document.getElementById('radar-status').innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${randomDir.toUpperCase()} OBSTACLE: ${dist}m`;
+        }, 3000);
+
+    </script>
+</body>
+</html>
